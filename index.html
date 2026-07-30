@@ -483,6 +483,25 @@ function setSprite(img,urls){
   img.onerror=()=>{ i++; if(i<urls.length){ img.src=urls[i]; apply(); } else { img.onerror=null; img.src=PH; } };
   img.src=urls[0]||PH; apply();
 }
+// Some odd forms (e.g. "miraidon-aquatic-mode") have no sprite of their own,
+// so resolve the base species id as a last-resort image that always exists.
+function baseSpeciesId(m){
+  if(!m||!m.name) return null;
+  const sp = (typeof speciesOf==="function") ? speciesOf(m.name) : null;
+  const id = (sp && S.speciesId) ? S.speciesId[sp] : null;
+  return (id && id!==m.id) ? id : null;
+}
+// Reveal/roster chain: the form's own images, then the base species', then Poké Ball.
+function revealUrls(m){
+  const chain=spriteUrls(m.id, m.shiny);
+  const bid=baseSpeciesId(m); const s=m.shiny?"/shiny":"";
+  if(bid) chain.push(
+    `${SPR}/other/official-artwork${s}/${bid}.png`,
+    `${SPR}/other/home${s}/${bid}.png`,
+    `${SPR}/other/official-artwork/${bid}.png`,
+    `${SPR}/${bid}.png`);
+  return chain;
+}
 function hydrateSprites(root){
   root.querySelectorAll("img[data-id]").forEach(img=>{
     if(img.dataset.hy) return; img.dataset.hy="1";
@@ -589,7 +608,7 @@ async function rollMon(exclude){
     for(let t=0;t<6;t++){
       try{
         const m=await fetchMon(rnd(pool));
-        const imgList=spriteUrls(m.id,shiny);
+        const imgList=revealUrls({...m,shiny});
         return {...m,shiny,imgList,img:imgList[0]};
       }catch(e){/* retry */}
     }
@@ -717,7 +736,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v9 — HGSS battle look</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v10 — HGSS look, sprite fix</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -1225,19 +1244,21 @@ function renderBattle(){
     else if(!bt.busy&&!bt.over) setPrompt();
   };
 }
-// classic front/back pixel sprites (back = your side). Many newer Pokémon /
-// megas / Gigantamax have no pixel sprite, so fall back to the full artwork —
-// which exists for everyone — before ever showing the Poké Ball placeholder.
+// classic front/back pixel sprites (back = your side). If a form has no pixel
+// sprite, fall back to its artwork, then to the BASE species' sprites/artwork
+// (odd forms like "aquatic-mode" have none of their own) — never a bare ball.
 function battleSprite(m, back){
   const s=m.shiny?"/shiny":"";
-  const art=[
-    `${SPR}/other/official-artwork${s}/${m.id}.png`,
-    `${SPR}/other/home${s}/${m.id}.png`,
-    `${SPR}/other/official-artwork/${m.id}.png`,
-    PH,
-  ];
-  if(back) return [`${SPR}/back${s}/${m.id}.png`, `${SPR}/back/${m.id}.png`, `${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, ...art];
-  return [`${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, ...art];
+  const art=id=>[`${SPR}/other/official-artwork${s}/${id}.png`,`${SPR}/other/home${s}/${id}.png`,`${SPR}/other/official-artwork/${id}.png`];
+  let chain = back
+    ? [`${SPR}/back${s}/${m.id}.png`, `${SPR}/back/${m.id}.png`, `${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, ...art(m.id)]
+    : [`${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, ...art(m.id)];
+  const bid=baseSpeciesId(m);
+  if(bid) chain = chain.concat(back
+    ? [`${SPR}/back${s}/${bid}.png`, `${SPR}/back/${bid}.png`, ...art(bid), `${SPR}/${bid}.png`]
+    : [...art(bid), `${SPR}/${bid}.png`]);
+  chain.push(PH);
+  return chain;
 }
 function setPrompt(){
   if(!S.bt||S.bt.over) return;
