@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Poké Draft Duel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#141235; --night2:#211c4d; --panel:#2a2560; --panel2:#332b74;
+  --red:#ee2b3a; --red-d:#b81f2c; --yellow:#ffcb05; --ink:#0b0a24;
+  --white:#f6f5ff; --muted:#a49ede; --line:rgba(255,255,255,.10);
+  --good:#37d67a; --slot:rgba(255,255,255,.06);
+  --display:'Fredoka','Trebuchet MS',system-ui,sans-serif;
+  --pixel:'Press Start 2P','Courier New',monospace;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  color:var(--white);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #3a2f8a 0%, transparent 60%),
+    radial-gradient(900px 500px at 90% 110%, #4a1f5e 0%, transparent 55%),
+    linear-gradient(180deg,var(--night) 0%, var(--night2) 100%);
+  background-attachment:fixed;
+  min-height:100%;
+  overflow-x:hidden;
+}
+h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
+.mono{font-family:var(--mono)}
+.app{max-width:720px;margin:0 auto;padding:16px 14px 40px;min-height:100vh}
+
+/* ---------- shared ---------- */
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-weight:600;font-size:13px}
+.btn{
+  font-family:var(--display);font-weight:600;border:none;cursor:pointer;
+  border-radius:16px;padding:15px 20px;font-size:17px;color:#fff;
+  background:linear-gradient(180deg,var(--red),var(--red-d));
+  box-shadow:0 6px 0 #7c1420, 0 10px 22px rgba(0,0,0,.35);
+  transition:transform .08s ease, box-shadow .08s ease;
+  width:100%;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #7c1420,0 6px 14px rgba(0,0,0,.35)}
+.btn:disabled{opacity:.45;filter:grayscale(.4);cursor:not-allowed}
+.btn.ghost{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  box-shadow:0 6px 0 #1a1640,0 10px 20px rgba(0,0,0,.3);
+}
+.btn.ghost:active{box-shadow:0 2px 0 #1a1640,0 6px 14px rgba(0,0,0,.3)}
+.card-surface{
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+  border:1px solid var(--line);border-radius:22px;
+}
+
+/* ---------- setup ---------- */
+.hero{text-align:center;padding:14px 6px 6px}
+.hero h1{font-size:40px;line-height:1;margin:14px 0 4px;
+  background:linear-gradient(180deg,#fff 30%, var(--yellow) 130%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 0 rgba(0,0,0,.25))}
+.hero p{color:var(--muted);margin:0 0 6px;font-size:15px}
+.setup{margin-top:14px;padding:18px 16px}
+.field{margin-bottom:20px}
+.field > label{display:block;font-family:var(--display);font-weight:600;font-size:15px;margin-bottom:10px;color:var(--white)}
+.field .hint{color:var(--muted);font-weight:400;font-size:12.5px;font-family:system-ui}
+.choices{display:flex;gap:10px;flex-wrap:wrap}
+.chip{
+  flex:1 1 0;min-width:96px;text-align:center;cursor:pointer;user-select:none;
+  border:1.5px solid var(--line);border-radius:14px;padding:12px 8px;
+  background:var(--slot);font-family:var(--display);font-weight:600;font-size:15px;
+  transition:.12s;color:var(--muted)
+}
+.chip.on{border-color:var(--yellow);color:#fff;background:linear-gradient(180deg,rgba(255,203,5,.18),rgba(255,203,5,.05));box-shadow:0 0 0 3px rgba(255,203,5,.12)}
+.chip small{display:block;font-family:system-ui;font-weight:400;font-size:11px;color:var(--muted);margin-top:3px}
+.choices.wrap{flex-wrap:wrap}
+.chip.sm{flex:0 1 auto;min-width:66px;padding:9px 12px;font-size:14px}
+.chip .gen{display:block;font-family:var(--mono);font-weight:400;font-size:9.5px;color:var(--muted);margin-top:2px}
+.chip.sm.on .gen{color:var(--yellow)}
+.names{display:flex;gap:10px}
+.names input{
+  flex:1;background:var(--slot);border:1.5px solid var(--line);border-radius:12px;
+  color:#fff;padding:12px;font-size:15px;font-family:system-ui;min-width:0;
+}
+.names input:focus{outline:none;border-color:var(--yellow)}
+.loadline{color:var(--muted);font-size:13px;text-align:center;margin-top:12px;min-height:18px}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.pips{display:flex;gap:5px}
+.pip{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.15)}
+.pip.done{background:var(--yellow);border-color:var(--yellow)}
+.pip.now{background:var(--red);border-color:#fff;box-shadow:0 0 8px var(--red)}
+.roundlbl{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:8px}
+.iconbtn{background:var(--slot);border:1px solid var(--line);color:var(--white);width:40px;height:40px;border-radius:12px;font-size:18px;cursor:pointer;display:grid;place-items:center}
+
+.turnbanner{text-align:center;font-family:var(--display);font-weight:700;font-size:20px;
+  padding:10px;border-radius:14px;margin-bottom:14px;
+  background:linear-gradient(90deg,transparent,rgba(255,203,5,.14),transparent);
+  transition:.2s}
+.turnbanner .who{color:var(--yellow)}
+.turnbanner.p2{background:linear-gradient(90deg,transparent,rgba(99,144,240,.16),transparent)}
+.turnbanner.p2 .who{color:#8fb2ff}
+
+/* ---------- rosters ---------- */
+.rosters{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.roster{padding:8px 10px;border-radius:14px;border:1px solid var(--line);background:var(--slot);transition:.2s}
+.roster.active{border-color:var(--yellow);background:linear-gradient(90deg,rgba(255,203,5,.10),transparent)}
+.roster .rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.rname{font-family:var(--display);font-weight:600;font-size:14px}
+.rscore{font-family:var(--mono);font-size:13px;color:var(--yellow)}
+.slots{display:flex;gap:6px}
+.slot{flex:1;aspect-ratio:1;border-radius:10px;background:var(--slot);border:1px dashed rgba(255,255,255,.14);
+  display:grid;place-items:center;position:relative;overflow:hidden}
+.slot img{width:100%;height:100%;object-fit:contain;padding:2px}
+.slot.filled{border-style:solid;border-color:var(--line);background:rgba(255,255,255,.04)}
+.slot.shiny{box-shadow:inset 0 0 0 2px var(--yellow), 0 0 8px rgba(255,203,5,.4)}
+.slot .num{position:absolute;top:2px;left:4px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.slot.pop{animation:pop .4s ease}
+@keyframes pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+/* ---------- arena / balls ---------- */
+.arena{position:relative;padding:8px 4px 4px;margin-bottom:8px}
+.arena .platform{
+  position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
+  width:86%;height:44px;border-radius:50%;
+  background:radial-gradient(ellipse at center, rgba(255,203,5,.18), transparent 70%);
+  z-index:0;pointer-events:none
+}
+.arena-hint{text-align:center;color:var(--muted);font-size:13px;margin:2px 0 12px}
+.balls{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:460px){.balls{grid-template-columns:repeat(2,1fr);gap:16px}}
+.ballwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ball{
+  --c:var(--red);
+  width:100%;max-width:120px;aspect-ratio:1;border-radius:50%;position:relative;cursor:pointer;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255,255,255,.6), transparent 30%),
+    linear-gradient(180deg, var(--c) 0 47%, #f4f4f8 53% 100%);
+  border:4px solid #17162f;
+  box-shadow:0 10px 18px rgba(0,0,0,.4), inset 0 -6px 12px rgba(0,0,0,.25);
+  animation:wobble 3s ease-in-out infinite;
+  transition:transform .1s ease;
+}
+.ball::before{content:"";position:absolute;left:-4px;right:-4px;top:calc(50% - 5px);height:10px;background:#17162f}
+.ball::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:26%;aspect-ratio:1;border-radius:50%;background:#f4f4f8;border:4px solid #17162f;
+  box-shadow:0 0 0 3px #f4f4f8, inset 0 0 6px rgba(0,0,0,.3)}
+.ball:active{transform:scale(.94)}
+.ball.shake{animation:shake .5s ease}
+.ball.spent{opacity:.28;filter:grayscale(.7);cursor:default;animation:none}
+.ball.opened{opacity:.2;filter:grayscale(.6);cursor:default;animation:none;transform:scale(.85)}
+.balltag{font-family:var(--display);font-weight:600;font-size:12px;color:var(--muted)}
+.ball.disabled{cursor:default;animation-play-state:paused}
+@keyframes wobble{0%,88%,100%{transform:rotate(0)}92%{transform:rotate(-6deg)}96%{transform:rotate(6deg)}}
+@keyframes shake{0%,100%{transform:rotate(0)}10%{transform:rotate(-14deg) scale(1.05)}30%{transform:rotate(14deg) scale(1.08)}
+  50%{transform:rotate(-16deg) scale(1.1)}70%{transform:rotate(12deg) scale(1.06)}90%{transform:rotate(-6deg)}}
+
+/* ball type variety (cosmetic) */
+.ball.great{--c:#3a7bd5}
+.ball.ultra{--c:#f2b134}
+.ball.ultra::after{background:#111;box-shadow:0 0 0 3px #f4f4f8,inset 0 0 6px rgba(0,0,0,.4)}
+.ball.master{--c:#7d3cc9}
+
+/* ---------- reveal modal ---------- */
+.backdrop{position:fixed;inset:0;background:rgba(8,6,26,.72);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
+.backdrop.show{display:flex;animation:fade .2s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.reveal{width:100%;max-width:360px;border-radius:26px;padding:20px 18px 18px;text-align:center;position:relative;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.6);
+  animation:burst .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes burst{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+.flash{position:fixed;inset:0;background:#fff;z-index:49;pointer-events:none;opacity:0}
+.flash.go{animation:flash .5s ease}
+@keyframes flash{0%{opacity:0}20%{opacity:.9}100%{opacity:0}}
+.spritebox{position:relative;width:190px;height:190px;margin:0 auto 4px;display:grid;place-items:center}
+.spritebox img{max-width:100%;max-height:100%;object-fit:contain;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));image-rendering:auto}
+.spritebox.shiny::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at center, rgba(255,203,5,.28), transparent 62%);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.08);opacity:1}}
+.spark{position:absolute;font-size:16px;pointer-events:none;animation:twinkle 1.4s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1.1)}}
+.badges{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;min-height:10px}
+.badge{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.5px;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+.badge.mega{background:linear-gradient(90deg,#7d3cc9,#c94fd8);color:#fff}
+.badge.gmax{background:linear-gradient(90deg,#e0245e,#ff6a3d);color:#fff}
+.badge.shiny{background:var(--yellow);color:#3a2a00}
+.revname{font-family:var(--display);font-weight:700;font-size:24px;margin:2px 0 2px}
+.types{display:flex;gap:6px;justify-content:center;margin:6px 0 10px}
+.type{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:4px 10px;border-radius:999px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.statrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px}
+.bst{font-family:var(--mono);font-size:15px;color:var(--muted)}
+.bst b{color:#fff;font-size:26px}
+.bonus{font-family:var(--mono);font-size:12px;color:var(--good)}
+.reveal .actions{display:flex;gap:10px}
+.reveal .actions .btn{font-size:16px;padding:14px}
+.ai-note{color:var(--muted);font-size:13px;font-family:var(--mono);margin-top:4px;min-height:16px}
+
+/* ---------- results ---------- */
+.results{text-align:center;padding-top:10px}
+.winner{font-family:var(--display);font-weight:700;font-size:34px;margin:6px 0 2px;
+  background:linear-gradient(180deg,#fff,var(--yellow));-webkit-background-clip:text;background-clip:text;color:transparent}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;margin:16px 0}
+.vscol{padding:12px 8px;border-radius:18px}
+.vscol.win{background:linear-gradient(180deg,rgba(255,203,5,.14),transparent);border:1px solid rgba(255,203,5,.35)}
+.vscol h3{margin:0 0 2px;font-size:16px}
+.vstotal{font-family:var(--mono);font-size:22px;color:var(--yellow);margin-bottom:8px}
+.vsteam{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.vsmon{background:var(--slot);border:1px solid var(--line);border-radius:10px;padding:3px;position:relative;aspect-ratio:1}
+.vsmon img{width:100%;height:100%;object-fit:contain}
+.vsmon.shiny{box-shadow:inset 0 0 0 2px var(--yellow)}
+.vsmid{font-family:var(--display);font-weight:700;font-size:22px;color:var(--muted);align-self:center}
+.results .btn{margin-top:8px}
+.confetti{position:fixed;top:-10px;font-size:16px;z-index:60;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.9}}
+
+.spinner{width:34px;height:34px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:var(--yellow);animation:spin .8s linear infinite;margin:20px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.foot{text-align:center;color:var(--muted);font-size:11px;margin-top:24px;opacity:.7}
+
+/* ---------- battle mode ---------- */
+.bwrap{display:flex;flex-direction:column;gap:12px}
+.bhead{display:flex;align-items:center;justify-content:space-between}
+.bhead h2{margin:0;font-size:22px;letter-spacing:1px}
+.bhead .disp{color:var(--muted)}
+.bpanel{position:relative;border-radius:18px;padding:12px 14px;border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));overflow:hidden}
+.bpanel.you{background:linear-gradient(180deg,rgba(255,203,5,.10),rgba(255,255,255,.02));border-color:rgba(255,203,5,.3)}
+.bpanel.foe{background:linear-gradient(180deg,rgba(238,43,58,.10),rgba(255,255,255,.02));border-color:rgba(238,43,58,.3)}
+.brow{display:flex;align-items:center;gap:12px}
+.bsprite{width:96px;height:96px;flex:0 0 96px;display:grid;place-items:center}
+.bsprite img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));transition:opacity .4s, transform .4s}
+.bpanel.foe .bsprite img{transform:scaleX(-1)}
+.bsprite.fainted img{opacity:.15;transform:translateY(14px) scale(.85)}
+.bpanel.foe .bsprite.fainted img{transform:translateY(14px) scale(.85) scaleX(-1)}
+.binfo{flex:1;min-width:0}
+.bname{font-family:var(--display);font-weight:700;font-size:18px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.btypes{display:flex;gap:5px;margin:4px 0 7px}
+.btypes .type{padding:2px 8px;font-size:10px}
+.hpbar{height:12px;border-radius:8px;background:rgba(0,0,0,.35);overflow:hidden;border:1px solid rgba(255,255,255,.12)}
+.hpfill{height:100%;width:100%;border-radius:8px;transition:width .5s ease, background .3s;background:var(--good)}
+.hpfill.mid{background:var(--yellow)}
+.hpfill.low{background:var(--red)}
+.hptext{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;display:flex;justify-content:space-between}
+.bdots{display:flex;gap:4px;position:absolute;top:12px;right:14px}
+.bdot{width:9px;height:9px;border-radius:50%;background:var(--good);border:1px solid rgba(255,255,255,.2)}
+.bdot.out{background:rgba(255,255,255,.15)}
+.bdot.active{box-shadow:0 0 0 2px var(--yellow)}
+.bmid{text-align:center;font-family:var(--display);font-weight:700;color:var(--muted);font-size:13px;letter-spacing:2px;margin:-4px 0}
+.blog{min-height:52px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.25);
+  padding:9px 12px;font-size:13.5px;line-height:1.5;color:var(--white)}
+.blog .eff{color:var(--yellow);font-weight:600}
+.blog .crit{color:#ff8a5c;font-weight:600}
+.blog .muted{color:var(--muted)}
+.bmoves{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.moveb{border:none;cursor:pointer;border-radius:14px;padding:11px 12px;text-align:left;color:#fff;
+  font-family:var(--display);font-weight:600;font-size:14px;line-height:1.2;
+  box-shadow:0 4px 0 rgba(0,0,0,.35);transition:transform .07s, box-shadow .07s;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.moveb:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.moveb:disabled{opacity:.5;cursor:not-allowed}
+.moveb .mmeta{display:flex;justify-content:space-between;align-items:center;margin-top:5px;font-family:var(--mono);font-weight:400;font-size:10.5px;opacity:.9}
+.moveb .mtag{text-transform:uppercase;letter-spacing:.5px}
+.bctrl{display:flex;gap:9px}
+.bctrl .btn{padding:12px}
+.bfx{position:fixed;inset:0;pointer-events:none;z-index:40}
+.hitflash{animation:hitflash .4s ease}
+@keyframes hitflash{0%,100%{filter:none}30%{filter:brightness(2) saturate(0)}}
+.shake-x{animation:shakex .35s ease}
+@keyframes shakex{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+
+/* ---------- classic (OG) battle skin ---------- */
+.gb{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.gb-field{position:relative;aspect-ratio:1/0.82;border-radius:10px;overflow:hidden;border:3px solid #14131f;
+  background:linear-gradient(#bfe9ff 0 54%, #6cc05a 54% 56.5%, #cdeecb 56.5% 100%);
+  box-shadow:inset 0 0 0 2px #f8f8f0}
+.gb-field img{image-rendering:pixelated}
+.plat{position:absolute;width:44%;height:10%;border-radius:50%;background:rgba(70,140,60,.30)}
+.plat.foe{top:31%;right:3%}
+.plat.you{bottom:10%;left:1%}
+.bslot{position:absolute}
+.foeHp{top:10px;left:10px;width:53%}
+.youHp{bottom:10px;right:10px;width:53%}
+.foeMon{top:8%;right:7%;width:33%;max-width:120px}
+.youMon{bottom:12%;left:5%;width:41%;max-width:152px}
+.foeMon .bsprite,.youMon .bsprite{width:100%;aspect-ratio:1;display:grid;place-items:center}
+.foeMon img,.youMon img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 5px rgba(0,0,0,.4));transition:opacity .4s,transform .4s}
+.bsprite.fainted img{opacity:.1;transform:translateY(16px) scale(.8)}
+.gb-box{background:#f8f8f0;border:3px solid #14131f;border-radius:9px;box-shadow:0 3px 0 #14131f}
+.hpbox{padding:7px 9px}
+.hb-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.hb-name{font-family:var(--pixel);font-size:9px;color:#14131f;letter-spacing:.5px;line-height:1.2}
+.hb-lv{font-family:var(--pixel);font-size:8px;color:#14131f}
+.hb-bar{display:flex;align-items:center;gap:5px;margin-top:7px}
+.hb-hp{font-family:var(--pixel);font-size:7px;color:#f8d030;background:#14131f;padding:2px 3px;border-radius:2px}
+.hpbar{flex:1;height:9px;border-radius:6px;background:#585868;border:2px solid #14131f;overflow:hidden;padding:0}
+.hpfill{height:100%;width:100%;border-radius:0;background:#68d048;transition:width .5s ease,background .3s}
+.hpfill.mid{background:#f8d030}
+.hpfill.low{background:#f85838}
+.hb-num{font-family:var(--pixel);font-size:8px;color:#14131f;text-align:right;margin-top:5px}
+.hb-dots{display:flex;gap:3px;justify-content:flex-end;margin-top:6px}
+.bdot{width:8px;height:8px;border-radius:50%;background:#68d048;border:1.5px solid #14131f;box-shadow:none}
+.bdot.out{background:#c8c8c8}
+.gb-text{font-family:var(--pixel);font-size:10px;line-height:1.9;color:#14131f;background:#f8f8f0;
+  border:3px solid #14131f;border-radius:9px;box-shadow:0 3px 0 #14131f;padding:12px 13px;min-height:56px}
+.gb-text b{color:#14131f}
+.gb-text .eff{color:#c02020}
+.gb-text .crit{color:#d06010}
+.gb-text .muted{color:#5b6472}
+.gb-menu{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mvb{font-family:var(--pixel);font-size:9px;line-height:1.35;background:#f8f8f0;color:#14131f;
+  border:3px solid #14131f;border-radius:8px;box-shadow:0 3px 0 #14131f;
+  padding:11px 10px 11px 20px;text-align:left;position:relative;cursor:pointer}
+.mvb::before{content:"▶";position:absolute;left:7px;top:11px;color:#e03030;opacity:0}
+.mvb:hover::before,.mvb:focus::before{opacity:1}
+.mvb:active{transform:translateY(2px);box-shadow:0 1px 0 #14131f}
+.mvb:disabled{opacity:.55;cursor:not-allowed}
+.mv-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle;border:1px solid #14131f}
+.mv-sub{display:block;font-size:7px;color:#707888;margin-top:6px;letter-spacing:.3px}
+.bhead h2{font-family:var(--pixel);font-size:14px}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important}
+  .ball{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="flash" id="flash"></div>
+<div class="backdrop" id="backdrop"><div id="revealHost"></div></div>
+
+<script>
+/* ============================================================
+   POKÉ DRAFT DUEL  — vanilla JS, self-contained
+   ============================================================ */
+const API = "https://pokeapi.co/api/v2";
+const ART = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork";
+const SPR = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+
+const TYPE_COLORS = {
+  normal:"#9a9a6e",fire:"#ee8130",water:"#6390f0",electric:"#e8be1c",grass:"#67ba43",
+  ice:"#86cfc9",fighting:"#c22e28",poison:"#a33ea1",ground:"#dcb35a",flying:"#9d86f0",
+  psychic:"#f95587",bug:"#9aad16",rock:"#b6a136",ghost:"#7359a6",dragon:"#6f35fc",
+  dark:"#6b5647",steel:"#9c9cc0",fairy:"#e28bc2"
+};
+const BALL_STYLES = ["", "great", "ultra", "master"];
+const BALL_NAMES  = ["Poké Ball","Great Ball","Ultra Ball","Master Ball"];
+
+// Region = generation. Max national-dex id per generation.
+const GEN_MAX = [151,251,386,493,649,721,809,905,1025];
+const REGION_NAMES = ["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
+function genFromId(id){ for(let g=0;g<9;g++){ if(id<=GEN_MAX[g]) return g+1; } return 0; }
+
+// Curated legendary + mythical + ultra-beast + legendary-paradox species.
+const LEGENDARY = new Set([
+  "articuno","zapdos","moltres","mewtwo","mew",
+  "raikou","entei","suicune","lugia","ho-oh","celebi",
+  "regirock","regice","registeel","latias","latios","kyogre","groudon","rayquaza","jirachi","deoxys",
+  "uxie","mesprit","azelf","dialga","palkia","heatran","regigigas","giratina","cresselia",
+  "phione","manaphy","darkrai","shaymin","arceus",
+  "victini","cobalion","terrakion","virizion","tornadus","thundurus","reshiram","zekrom",
+  "landorus","kyurem","keldeo","meloetta","genesect",
+  "xerneas","yveltal","zygarde","diancie","hoopa","volcanion",
+  "type-null","silvally","tapu-koko","tapu-lele","tapu-bulu","tapu-fini","cosmog","cosmoem",
+  "solgaleo","lunala","nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana",
+  "guzzlord","necrozma","magearna","marshadow","poipole","naganadel","stakataka","blacephalon",
+  "zeraora","meltan","melmetal",
+  "zacian","zamazenta","eternatus","kubfu","urshifu","zarude","regieleki","regidrago",
+  "glastrier","spectrier","calyrex","enamorus",
+  "wo-chien","chien-pao","ting-lu","chi-yu","koraidon","miraidon","walking-wake","iron-leaves",
+  "okidogi","munkidori","fezandipiti","ogerpon","terapagos","pecharunt",
+  "gouging-fire","raging-bolt","iron-boulder","iron-crown"
+]);
+
+// Small offline safety net (used only if the live Pokédex can't load)
+const FALLBACK = [
+  ["bulbasaur",1,318,["grass","poison"]],["charmander",4,309,["fire"]],["charizard",6,534,["fire","flying"]],
+  ["squirtle",7,314,["water"]],["blastoise",9,530,["water"]],["butterfree",12,395,["bug","flying"]],
+  ["pikachu",25,320,["electric"]],["raichu",26,485,["electric"]],["arcanine",59,555,["fire"]],
+  ["alakazam",65,500,["psychic"]],["machamp",68,505,["fighting"]],["gengar",94,500,["ghost","poison"]],
+  ["gyarados",130,540,["water","flying"]],["lapras",131,535,["water","ice"]],["eevee",133,325,["normal"]],
+  ["vaporeon",134,525,["water"]],["jolteon",135,525,["electric"]],["flareon",136,525,["fire"]],
+  ["snorlax",143,540,["normal"]],["articuno",144,580,["ice","flying"]],["zapdos",145,580,["electric","flying"]],
+  ["moltres",146,580,["fire","flying"]],["dragonite",149,600,["dragon","flying"]],["mewtwo",150,680,["psychic"]],
+  ["mew",151,600,["psychic"]],["typhlosion",157,534,["fire"]],["feraligatr",160,530,["water"]],
+  ["tyranitar",248,600,["rock","dark"]],["lugia",249,680,["psychic","flying"]],["ho-oh",250,680,["fire","flying"]],
+  ["sceptile",254,530,["grass"]],["blaziken",257,530,["fire","fighting"]],["swampert",260,535,["water","ground"]],
+  ["gardevoir",282,518,["psychic","fairy"]],["metagross",376,600,["steel","psychic"]],["rayquaza",384,680,["dragon","flying"]],
+  ["infernape",392,534,["fire","fighting"]],["garchomp",445,600,["dragon","ground"]],["lucario",448,525,["fighting","steel"]],
+  ["greninja",658,530,["water","dark"]]
+];
+const FALLBACK_MAP = Object.fromEntries(FALLBACK.map(f=>[f[0],f]));
+
+/* ---------------- state ---------------- */
+const S = {
+  screen:"setup",
+  p2ai:true, noGoPerRound:1, drawStyle:"fair", shinyRate:0.08, sound:true, battleMode:true,
+  region:0, noLegendaries:false,
+  p1name:"Player 1", p2name:"AI Rival",
+  players:null, round:1, cur:0,
+  balls:[], activeIdx:null, busy:false,
+  pokedex:[], apiOk:false, cache:{},
+  speciesSet:null, speciesId:{}, meta:{}, pool:[],
+};
+
+/* ---------------- audio ---------------- */
+let AC=null;
+function beep(freq=440,dur=.08,type="square",vol=.05){
+  if(!S.sound) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type=type;o.frequency.value=freq;g.gain.value=vol;
+    o.connect(g);g.connect(AC.destination);
+    o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+dur);
+    o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+const sfxPick =()=>{beep(660,.06,"square");setTimeout(()=>beep(990,.08,"square"),60)};
+const sfxShiny=()=>{[880,1180,1560].forEach((f,i)=>setTimeout(()=>beep(f,.09,"triangle",.06),i*90))};
+const sfxWin  =()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.14,"triangle",.06),i*130))};
+
+/* ---------------- helpers ---------------- */
+const $=id=>document.getElementById(id);
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const cap=s=>s?s[0].toUpperCase()+s.slice(1):s;
+
+function parseName(name){
+  const parts=name.split("-");
+  let mega=parts.includes("mega"), gmax=parts.includes("gmax"), variant="";
+  if(mega){const i=parts.indexOf("mega"); if(parts[i+1]) variant=parts[i+1].toUpperCase();}
+  const drop=new Set(["mega","gmax"]); if(mega&&variant) drop.add(variant.toLowerCase());
+  let words=parts.filter(p=>!drop.has(p));
+  let display=words.map(cap).join(" ")||cap(name.replace(/-/g," "));
+  return {display,mega,gmax,variant};
+}
+function score(m){return Math.round(m.bst*(m.shiny?1.15:1));}
+
+// ---- images: build URLs from the numeric id (never trust nullable API fields) ----
+function spriteUrls(id,shiny){
+  const s=shiny?"/shiny":"";
+  return [
+    `${SPR}/other/official-artwork${s}/${id}.png`,
+    `${SPR}/other/home${s}/${id}.png`,
+    `${SPR}${s}/${id}.png`,
+    `${SPR}/other/official-artwork/${id}.png`,
+    `${SPR}/${id}.png`,
+  ];
+}
+const PH="data:image/svg+xml;utf8,"+encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>"+
+  "<circle cx='50' cy='50' r='45' fill='#f4f4f8' stroke='#17162f' stroke-width='5'/>"+
+  "<path d='M5 50a45 45 0 0 1 90 0z' fill='#ee2b3a'/>"+
+  "<line x1='5' y1='50' x2='95' y2='50' stroke='#17162f' stroke-width='7'/>"+
+  "<circle cx='50' cy='50' r='13' fill='#fff' stroke='#17162f' stroke-width='6'/></svg>");
+function setSprite(img,urls){
+  let i=0;
+  img.onerror=()=>{ i++; if(i<urls.length){ img.src=urls[i]; } else { img.onerror=null; img.src=PH; } };
+  img.src=urls[0]||PH;
+}
+function hydrateSprites(root){
+  root.querySelectorAll("img[data-id]").forEach(img=>{
+    if(img.dataset.hy) return; img.dataset.hy="1";
+    setSprite(img, spriteUrls(+img.dataset.id, img.dataset.shiny==="1"));
+  });
+}
+
+// ---- draw-style helpers ----
+function shinyRateFor(style){ return style==="chaos"?0.5:0.08; }
+function pickWeighted(pairs){
+  const tot=pairs.reduce((a,p)=>a+p[1],0); let r=Math.random()*tot;
+  for(const [v,w] of pairs){ if((r-=w)<0) return v; }
+  return pairs[0][0];
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+// Map any form name (e.g. "charizard-mega-x") back to its base species.
+function speciesOf(name){
+  if(!S.speciesSet) return null;
+  const parts=name.split("-");
+  for(let i=parts.length;i>=1;i--){
+    const cand=parts.slice(0,i).join("-");
+    if(S.speciesSet.has(cand)) return cand;
+  }
+  return null;
+}
+// Tag every drawable entry with its region (generation) + legendary flag.
+function buildMeta(){
+  S.meta={};
+  if(S.apiOk && S.speciesSet){
+    for(const n of S.pokedex){
+      const sp=speciesOf(n);
+      const id=sp?S.speciesId[sp]:0;
+      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false};
+    }
+  } else {
+    for(const f of FALLBACK){
+      S.meta[f[0]]={gen:genFromId(f[1]), legendary:LEGENDARY.has(f[0])};
+    }
+  }
+}
+// Apply the region + legendary settings to produce the draw pool.
+function computePool(){
+  S.pool=S.pokedex.filter(n=>{
+    const m=S.meta[n];
+    if(!m) return S.region===0;
+    if(S.region!==0 && m.gen!==S.region) return false;
+    if(S.noLegendaries && m.legendary) return false;
+    return true;
+  });
+  if(!S.pool.length) S.pool=S.pokedex.slice();
+  return S.pool;
+}
+
+/* ---------------- data layer ---------------- */
+async function loadData(){
+  // 1) every Pokémon incl. megas / gmax / regional forms
+  try{
+    const r=await fetch(`${API}/pokemon?limit=100000&offset=0`);
+    if(!r.ok) throw 0;
+    const d=await r.json();
+    S.pokedex=d.results.map(x=>x.name);
+    S.apiOk=S.pokedex.length>50;
+  }catch(e){ S.apiOk=false; }
+  // 2) species list -> national-dex id per species (for region tagging)
+  if(S.apiOk){
+    try{
+      const r=await fetch(`${API}/pokemon-species?limit=100000`);
+      if(!r.ok) throw 0;
+      const d=await r.json();
+      S.speciesSet=new Set(); S.speciesId={};
+      for(const s of d.results){
+        const mm=s.url.match(/\/(\d+)\/?$/); const id=mm?+mm[1]:0;
+        S.speciesSet.add(s.name); S.speciesId[s.name]=id;
+      }
+    }catch(e){ S.speciesSet=null; }
+  }
+  if(!S.apiOk){ S.pokedex=FALLBACK.map(f=>f[0]); }
+  buildMeta();
+  return S.apiOk;
+}
+
+async function fetchMon(name){
+  if(S.cache[name]) return S.cache[name];
+  const r=await fetch(`${API}/pokemon/${name}`);
+  if(!r.ok) throw new Error("no mon");
+  const d=await r.json();
+  const bst=d.stats.reduce((a,s)=>a+s.base_stat,0);
+  const types=d.types.map(t=>t.type.name);
+  const st={}; d.stats.forEach(s=>st[s.stat.name]=s.base_stat);
+  const stats={hp:st.hp,atk:st.attack,def:st.defense,spa:st["special-attack"],spd:st["special-defense"],spe:st.speed};
+  const mon={name,id:d.id,bst,types,stats,...parseName(name)};
+  S.cache[name]=mon; return mon;
+}
+
+async function rollMon(){
+  const shiny=Math.random()<S.shinyRate;
+  const pool=(S.pool&&S.pool.length)?S.pool:S.pokedex;
+  if(S.apiOk){
+    for(let t=0;t<6;t++){
+      try{
+        const m=await fetchMon(rnd(pool));
+        const imgList=spriteUrls(m.id,shiny);
+        return {...m,shiny,imgList,img:imgList[0]};
+      }catch(e){/* retry */}
+    }
+  }
+  const f=FALLBACK_MAP[rnd(pool)]||rnd(FALLBACK);
+  const imgList=spriteUrls(f[1],shiny);
+  return {name:f[0],id:f[1],bst:f[2],types:f[3],shiny,imgList,img:imgList[0],
+          ...parseName(f[0])};
+}
+
+// Build the 4 balls for a turn according to the chosen draw style.
+async function generateTurnMons(){
+  if(S.drawStyle==="fair"){
+    const K=8;
+    const c=await Promise.all(Array.from({length:K},()=>rollMon()));
+    c.sort((a,b)=>a.bst-b.bst);
+    const nStrong=pickWeighted([[2,58],[1,16],[3,16],[0,5],[4,5]]);
+    const strong=c.slice(c.length-nStrong);   // strongest of the batch
+    const weak=c.slice(0,4-nStrong);           // weakest of the batch
+    return shuffle([...strong,...weak]);
+  }
+  // classic / chaos: pure luck, each ball independent
+  return Promise.all([rollMon(),rollMon(),rollMon(),rollMon()]);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  if(S.screen==="setup")   return renderSetup();
+  if(S.screen==="game")    return renderGame();
+  if(S.screen==="battle")  return S.bt?renderBattle():renderSetup();
+  if(S.screen==="results") return renderResults();
+}
+
+/* ---------- SETUP ---------- */
+function renderSetup(){
+  const app=$("app");
+  app.innerHTML=`
+    <div class="hero">
+      <div style="width:74px;margin:0 auto"><div class="ball" style="animation:wobble 3s infinite;pointer-events:none"></div></div>
+      <h1>Poké Draft Duel</h1>
+      <p>Crack open mystery balls. Draft a team of six. Out-power your rival.</p>
+    </div>
+
+    <div class="card-surface setup">
+      <div class="field">
+        <label>Player 2 <span class="hint">— who drafts second?</span></label>
+        <div class="choices" id="c-p2">
+          <div class="chip ${S.p2ai?"on":""}" data-v="ai">AI Rival<small>Auto-drafts</small></div>
+          <div class="chip ${!S.p2ai?"on":""}" data-v="human">Human<small>Pass & play</small></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>No Go reroll <span class="hint">— once per round, per player</span></label>
+        <div class="choices" id="c-ng">
+          <div class="chip ${S.noGoPerRound===0?"on":""}" data-v="0">Off<small>No rerolls</small></div>
+          <div class="chip ${S.noGoPerRound===1?"on":""}" data-v="1">1 / round<small>Recommended</small></div>
+          <div class="chip ${S.noGoPerRound===2?"on":""}" data-v="2">2 / round<small>Generous</small></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Ending <span class="hint">— how the duel is decided</span></label>
+        <div class="choices" id="c-end">
+          <div class="chip ${S.battleMode?"on":""}" data-v="battle">Battle<small>Teams fight it out</small></div>
+          <div class="chip ${!S.battleMode?"on":""}" data-v="power">Power total<small>Highest stats win</small></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Draw style <span class="hint">— how the four balls are chosen</span></label>
+        <div class="choices" id="c-ds">
+          <div class="chip ${S.drawStyle==="fair"?"on":""}" data-v="fair">Fair<small>≈2 strong · 2 weaker</small></div>
+          <div class="chip ${S.drawStyle==="classic"?"on":""}" data-v="classic">Classic<small>Natural odds</small></div>
+          <div class="chip ${S.drawStyle==="chaos"?"on":""}" data-v="chaos">Chaos<small>Anything, anytime</small></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Region <span class="hint">— which generations to draft from</span></label>
+        <div class="choices wrap" id="c-rg">
+          <div class="chip sm ${S.region===0?"on":""}" data-v="0">All<span class="gen">Nat'l Dex</span></div>
+          ${REGION_NAMES.map((nm,i)=>`<div class="chip sm ${S.region===i+1?"on":""}" data-v="${i+1}">${nm}<span class="gen">Gen ${i+1}</span></div>`).join("")}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Legendaries <span class="hint">— include the big rare ones?</span></label>
+        <div class="choices" id="c-lg">
+          <div class="chip ${!S.noLegendaries?"on":""}" data-v="inc">Include<small>Legends in play</small></div>
+          <div class="chip ${S.noLegendaries?"on":""}" data-v="exc">Exclude<small>Fairer drafts</small></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Trainer names <span class="hint">— optional</span></label>
+        <div class="names">
+          <input id="n1" maxlength="14" placeholder="Player 1" value="${S.p1name==="Player 1"?"":S.p1name}">
+          <input id="n2" maxlength="14" placeholder="${S.p2ai?"AI Rival":"Player 2"}" value="${(S.p2name==="AI Rival"||S.p2name==="Player 2")?"":S.p2name}">
+        </div>
+      </div>
+
+      <button class="btn" id="start">Start Duel</button>
+      <div class="loadline" id="loadline"></div>
+    </div>
+    <div class="foot">Poké Draft Duel · <b>v7 — battle mode</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+  `;
+
+  // choice handlers
+  bindChips("c-p2",v=>{S.p2ai=(v==="ai"); const n2=$("n2"); if(n2) n2.placeholder=S.p2ai?"AI Rival":"Player 2";});
+  bindChips("c-ng",v=>{S.noGoPerRound=+v;});
+  bindChips("c-end",v=>{S.battleMode=(v==="battle");});
+  bindChips("c-ds",v=>{S.drawStyle=v; updatePreview();});
+  bindChips("c-rg",v=>{S.region=+v; updatePreview();});
+  bindChips("c-lg",v=>{S.noLegendaries=(v==="exc"); updatePreview();});
+
+  const ll=$("loadline");
+  if(!Object.keys(S.meta).length){
+    ll.textContent="Loading the National Pokédex…";
+    loadData().then(()=>updatePreview());
+  } else {
+    updatePreview();
+  }
+
+  $("start").onclick=startGame;
+}
+function updatePreview(){
+  const ll=$("loadline"); if(!ll) return;
+  if(!Object.keys(S.meta).length){ ll.textContent="Loading the National Pokédex…"; return; }
+  computePool();
+  const scope = S.region===0 ? (S.apiOk?"National Dex":"starter roster") : REGION_NAMES[S.region-1];
+  const legs  = S.noLegendaries ? " · no legendaries" : "";
+  const style = {fair:"fair draws",classic:"classic odds",chaos:"chaos"}[S.drawStyle];
+  const src   = S.apiOk ? "" : " (offline roster)";
+  ll.textContent = `${S.pool.length} in pool · ${scope}${legs} · ${style}${src} ✓`;
+}
+function bindChips(wrapId,cb){
+  const w=$(wrapId); if(!w) return;
+  w.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
+    w.querySelectorAll(".chip").forEach(x=>x.classList.remove("on"));
+    c.classList.add("on"); cb(c.dataset.v); beep(520,.04,"sine",.03);
+  });
+}
+
+/* ---------- start ---------- */
+async function startGame(){
+  const n1=$("n1").value.trim(), n2=$("n2").value.trim();
+  S.p1name=n1||"Player 1";
+  S.p2name=n2||(S.p2ai?"AI Rival":"Player 2");
+  S.shinyRate=shinyRateFor(S.drawStyle);
+  S.players=[
+    {name:S.p1name, ai:false,  team:[], noGoRoundLeft:0},
+    {name:S.p2name, ai:S.p2ai, team:[], noGoRoundLeft:0},
+  ];
+  S.round=1; S.cur=0; S.screen="game";
+  if(!S.pokedex.length){ $("start").disabled=true; $("loadline").textContent="Loading Pokédex…"; await loadData(); }
+  computePool();
+  render();
+  beginTurn();
+}
+
+/* ---------- GAME shell ---------- */
+function renderGame(){
+  const app=$("app");
+  app.innerHTML=`
+    <div class="topbar">
+      <div style="display:flex;align-items:center">
+        <div class="pips" id="pips"></div>
+        <span class="roundlbl" id="roundlbl"></span>
+      </div>
+      <button class="iconbtn" id="mute" title="Sound">${S.sound?"🔊":"🔇"}</button>
+    </div>
+    <div class="turnbanner" id="banner"></div>
+    <div class="rosters" id="rosters"></div>
+    <div class="arena">
+      <div class="platform"></div>
+      <div class="arena-hint" id="arenahint"></div>
+      <div class="balls" id="balls"></div>
+    </div>
+  `;
+  $("mute").onclick=()=>{S.sound=!S.sound;$("mute").textContent=S.sound?"🔊":"🔇";};
+  updateTopbar(); updateBanner(); updateRosters();
+}
+function updateTopbar(){
+  const pips=$("pips"); pips.innerHTML="";
+  for(let i=1;i<=6;i++){
+    const p=document.createElement("div");
+    p.className="pip"+(i<S.round?" done":i===S.round?" now":"");
+    pips.appendChild(p);
+  }
+  $("roundlbl").textContent=`Round ${S.round}/6`;
+}
+function updateBanner(){
+  const b=$("banner"); const p=S.players[S.cur];
+  b.className="turnbanner"+(S.cur===1?" p2":"");
+  b.innerHTML=`<span class="who">${escapeHtml(p.name)}</span> ${p.ai?"is choosing…":"— pick a ball"}`;
+}
+function updateRosters(){
+  const host=$("rosters"); host.innerHTML="";
+  S.players.forEach((p,idx)=>{
+    const r=document.createElement("div");
+    r.className="roster"+(idx===S.cur?" active":"");
+    const total=p.team.reduce((a,m)=>a+score(m),0);
+    let slots="";
+    for(let i=0;i<6;i++){
+      const m=p.team[i];
+      if(m){
+        slots+=`<div class="slot filled ${m.shiny?"shiny":""}" data-pi="${idx}" data-si="${i}">
+          <span class="num">${score(m)}</span>
+          <img data-id="${m.id}" data-shiny="${m.shiny?1:0}" alt="${escapeHtml(m.display)}">
+        </div>`;
+      } else {
+        slots+=`<div class="slot"></div>`;
+      }
+    }
+    r.innerHTML=`<div class="rhead"><span class="rname">${escapeHtml(p.name)}${p.ai?" 🤖":""}</span>
+      <span class="rscore">⚡ ${total}</span></div>
+      <div class="slots">${slots}</div>`;
+    host.appendChild(r);
+  });
+  hydrateSprites(host);
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- TURN ---------- */
+async function beginTurn(){
+  S.busy=true; S.activeIdx=null;
+  S.players[S.cur].noGoRoundLeft=S.noGoPerRound;   // refreshes every round
+  updateTopbar(); updateBanner(); updateRosters();
+  const hint=$("arenahint"), ballsEl=$("balls");
+  hint.textContent="Summoning Pokémon…";
+  ballsEl.innerHTML=`<div style="grid-column:1/-1"><div class="spinner"></div></div>`;
+  const mons=await generateTurnMons();
+  S.balls=mons.map((m,i)=>({mon:m,state:"closed",style:BALL_STYLES[i]}));
+  paintBalls();
+  const p=S.players[S.cur];
+  hint.textContent=p.ai?"Watch your rival draft…":"Tap a ball to reveal what's inside.";
+  S.busy=false;
+  if(p.ai){ aiTurn(); }
+}
+function paintBalls(){
+  const el=$("balls"); el.innerHTML="";
+  S.balls.forEach((b,i)=>{
+    const w=document.createElement("div"); w.className="ballwrap";
+    const ball=document.createElement("div");
+    ball.className="ball "+b.style+(b.state==="spent"?" spent":b.state==="open"?" opened":"");
+    ball.dataset.i=i;
+    if(b.state==="closed") ball.onclick=()=>onBallTap(i);
+    const tag=document.createElement("div"); tag.className="balltag";
+    tag.textContent=b.state==="spent"?"passed":b.state==="open"?"opened":BALL_NAMES[i];
+    w.appendChild(ball); w.appendChild(tag); el.appendChild(w);
+  });
+}
+
+function onBallTap(i){
+  if(S.busy) return;
+  const p=S.players[S.cur]; if(p.ai) return;
+  openBall(i);
+}
+
+async function openBall(i){
+  if(S.balls[i].state!=="closed") return;
+  S.busy=true;
+  const el=$("balls").querySelector(`.ball[data-i="${i}"]`);
+  if(el){ el.classList.add("shake"); el.onclick=null; }
+  beep(300,.05,"sawtooth",.04);
+  await wait(430);
+  // flash
+  const fl=$("flash"); fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go");
+  S.balls[i].state="open"; S.activeIdx=i;
+  paintBalls();
+  const m=S.balls[i].mon;
+  if(m.shiny) sfxShiny(); else sfxPick();
+  showReveal();
+  S.busy=false;
+}
+
+/* ---------- REVEAL ---------- */
+function showReveal(){
+  const m=S.balls[S.activeIdx].mon;
+  const p=S.players[S.cur];
+  const closedLeft=S.balls.filter(b=>b.state==="closed").length;
+  const canNoGo=p.noGoRoundLeft>0 && closedLeft>0;
+
+  let badges="";
+  if(m.mega) badges+=`<span class="badge mega">Mega${m.variant?" "+m.variant:""}</span>`;
+  if(m.gmax) badges+=`<span class="badge gmax">Gigantamax</span>`;
+  if(m.shiny)badges+=`<span class="badge shiny">✦ Shiny</span>`;
+
+  const typeChips=m.types.map(t=>
+    `<span class="type" style="background:${TYPE_COLORS[t]||"#777"}">${t}</span>`).join("");
+
+  const sparks = m.shiny ? `
+     <span class="spark" style="top:6%;left:12%">✦</span>
+     <span class="spark" style="top:20%;right:8%;animation-delay:.4s">✧</span>
+     <span class="spark" style="bottom:14%;left:6%;animation-delay:.8s">✦</span>` : "";
+
+  const bonus = m.shiny ? `<span class="bonus">+15%</span>` : "";
+
+  let noteHtml="";
+  if(!canNoGo){
+    if(S.noGoPerRound===0) noteHtml=`<div class="ai-note">No Go is switched off.</div>`;
+    else if(p.noGoRoundLeft<=0) noteHtml=`<div class="ai-note">No Go already used this round.</div>`;
+    else if(closedLeft<=0) noteHtml=`<div class="ai-note">No other balls left — you'll keep this one.</div>`;
+  }
+
+  const actions = p.ai ? `<div class="ai-note" id="aiNote"></div>` : `
+    <div class="actions">
+      <button class="btn" id="keep">Keep</button>
+      <button class="btn ghost" id="nogo" ${canNoGo?"":"disabled"}>No&nbsp;Go</button>
+    </div>
+    ${noteHtml}`;
+
+  $("revealHost").innerHTML=`
+    <div class="reveal">
+      <div class="badges">${badges}</div>
+      <div class="spritebox ${m.shiny?"shiny":""}">
+        ${sparks}
+        <img alt="${escapeHtml(m.display)}" id="revImg">
+      </div>
+      <div class="revname">${escapeHtml(m.display)}</div>
+      <div class="types">${typeChips}</div>
+      <div class="statrow">
+        <span class="bst">BST <b>${m.bst}</b></span>
+        ${bonus}
+        <span class="bst" style="color:var(--yellow)">→ ⚡${score(m)}</span>
+      </div>
+      ${actions}
+    </div>`;
+  const img=$("revImg"); if(img) setSprite(img, m.imgList||spriteUrls(m.id,m.shiny));
+  $("backdrop").classList.add("show");
+
+  if(!p.ai){
+    $("keep").onclick=keepMon;
+    const ng=$("nogo"); if(ng && canNoGo) ng.onclick=useNoGo;
+  }
+}
+function hideReveal(){ $("backdrop").classList.remove("show"); }
+
+function keepMon(){
+  const p=S.players[S.cur];
+  const m=S.balls[S.activeIdx].mon;
+  p.team.push(m);
+  beep(880,.1,"triangle",.05);
+  hideReveal();
+  // pop the newly filled slot after roster repaint
+  updateRosters();
+  const rr=$("rosters");
+  const slot=rr.querySelector(`.slot[data-pi="${S.cur}"][data-si="${p.team.length-1}"]`);
+  if(slot) slot.classList.add("pop");
+  endTurn();
+}
+
+async function useNoGo(){
+  const p=S.players[S.cur];
+  if(p.noGoRoundLeft<=0) return;
+  p.noGoRoundLeft--;
+  S.balls[S.activeIdx].state="spent";
+  S.activeIdx=null;
+  beep(200,.12,"sawtooth",.05);
+  hideReveal();
+  paintBalls(); updateRosters();
+  $("arenahint").textContent="Reroll! Pick another ball — you must keep the next one.";
+}
+
+/* ---------- AI ---------- */
+async function aiTurn(){
+  const p=S.players[S.cur];
+  await wait(650);
+  while(true){
+    const closed=S.balls.map((b,i)=>b.state==="closed"?i:-1).filter(i=>i>=0);
+    const i=rnd(closed);
+    await openBall(i);
+    await wait(950);
+    const m=S.balls[i].mon;
+    const othersLeft=closed.length-1;
+    const wantKeep = m.shiny||m.mega||m.gmax||m.bst>=480||p.noGoRoundLeft<=0||othersLeft<=0;
+    const note=$("aiNote");
+    if(wantKeep){
+      if(note) note.textContent=(m.shiny||m.mega||m.gmax)?"“I'll take that — rare one!”":(m.bst>=480?"“Strong enough. Keeping it.”":"“I'll keep this.”");
+      await wait(700);
+      keepMon();
+      return;
+    } else {
+      if(note) note.textContent="“Not good enough — No Go!”";
+      await wait(750);
+      useNoGo();
+      await wait(500);
+    }
+  }
+}
+
+/* ---------- end turn / round ---------- */
+function endTurn(){
+  if(S.cur===0){ S.cur=1; setTimeout(beginTurn,450); return; }
+  // player 2 just finished -> next round
+  S.cur=0;
+  if(S.round>=6){ setTimeout(S.battleMode?startBattle:showResults,500); return; }
+  S.round++;
+  setTimeout(beginTurn,450);
+}
+
+/* ---------- RESULTS ---------- */
+function showResults(){ S.screen="results"; render(); }
+function renderResults(){
+  const [a,b]=S.players;
+  const sa=a.team.reduce((x,m)=>x+score(m),0);
+  const sb=b.team.reduce((x,m)=>x+score(m),0);
+  const draw=sa===sb;
+  const winA=sa>sb;
+  const wname=draw?"It's a draw!":(winA?a.name:b.name);
+  sfxWin(); confetti();
+
+  const teamHtml=(pl)=>pl.team.map(m=>
+    `<div class="vsmon ${m.shiny?"shiny":""}" title="${escapeHtml(m.display)} · ⚡${score(m)}">
+       <img data-id="${m.id}" data-shiny="${m.shiny?1:0}" alt="${escapeHtml(m.display)}"></div>`).join("");
+
+  $("app").innerHTML=`
+    <div class="results">
+      <div style="font-family:var(--display);color:var(--muted);letter-spacing:2px;font-size:13px">— FINAL —</div>
+      <div class="winner">${draw?"Draw!":"🏆 "+escapeHtml(wname)}</div>
+      <div style="color:var(--muted);font-size:13px">${draw?"Perfectly matched teams.":"wins the duel"}</div>
+
+      <div class="vs">
+        <div class="vscol ${(!draw&&winA)?"win":""}">
+          <h3>${escapeHtml(a.name)}</h3>
+          <div class="vstotal">⚡ ${sa}</div>
+          <div class="vsteam">${teamHtml(a)}</div>
+        </div>
+        <div class="vsmid">VS</div>
+        <div class="vscol ${(!draw&&!winA)?"win":""}">
+          <h3>${escapeHtml(b.name)}${b.ai?" 🤖":""}</h3>
+          <div class="vstotal">⚡ ${sb}</div>
+          <div class="vsteam">${teamHtml(b)}</div>
+        </div>
+      </div>
+
+      <button class="btn" id="again">Rematch</button>
+      <button class="btn ghost" id="tobattle" style="margin-top:10px">⚔️ Battle these teams</button>
+      <button class="btn ghost" id="menu" style="margin-top:10px">Change Settings</button>
+    </div>
+    <div class="foot">Tip: a well-timed “No Go” can swing the whole game.</div>
+  `;
+  hydrateSprites($("app"));
+  $("tobattle").onclick=startBattle;
+  $("again").onclick=()=>{ // same settings, fresh draft
+    S.players=[
+      {name:S.p1name, ai:false,  team:[], noGoRoundLeft:0},
+      {name:S.p2name, ai:S.p2ai, team:[], noGoRoundLeft:0},
+    ];
+    S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
+  };
+  $("menu").onclick=()=>{ S.screen="setup"; render(); };
+}
+function confetti(){
+  const em=["✦","✧","⚡","★","●"];
+  for(let i=0;i<28;i++){
+    const c=document.createElement("div");
+    c.className="confetti"; c.textContent=rnd(em);
+    c.style.left=Math.random()*100+"vw";
+    c.style.color=rnd(["#ffcb05","#ee2b3a","#6390f0","#67ba43","#e28bc2"]);
+    c.style.animationDuration=(2.4+Math.random()*1.8)+"s";
+    c.style.animationDelay=(Math.random()*0.6)+"s";
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),4600);
+  }
+}
+
+/* ============================================================
+   BATTLE MODE
+   ============================================================ */
+// Current 18-type effectiveness chart (attacker -> defender overrides; default 1).
+const CHART={
+ normal:{rock:.5,steel:.5,ghost:0},
+ fire:{grass:2,ice:2,bug:2,steel:2,fire:.5,water:.5,rock:.5,dragon:.5},
+ water:{fire:2,ground:2,rock:2,water:.5,grass:.5,dragon:.5},
+ electric:{water:2,flying:2,electric:.5,grass:.5,dragon:.5,ground:0},
+ grass:{water:2,ground:2,rock:2,fire:.5,grass:.5,poison:.5,flying:.5,bug:.5,dragon:.5,steel:.5},
+ ice:{grass:2,ground:2,flying:2,dragon:2,fire:.5,water:.5,ice:.5,steel:.5},
+ fighting:{normal:2,ice:2,rock:2,dark:2,steel:2,poison:.5,flying:.5,psychic:.5,bug:.5,fairy:.5,ghost:0},
+ poison:{grass:2,fairy:2,poison:.5,ground:.5,rock:.5,ghost:.5,steel:0},
+ ground:{fire:2,electric:2,poison:2,rock:2,steel:2,grass:.5,bug:.5,flying:0},
+ flying:{grass:2,fighting:2,bug:2,electric:.5,rock:.5,steel:.5},
+ psychic:{fighting:2,poison:2,psychic:.5,steel:.5,dark:0},
+ bug:{grass:2,psychic:2,dark:2,fire:.5,fighting:.5,poison:.5,flying:.5,ghost:.5,steel:.5,fairy:.5},
+ rock:{fire:2,ice:2,flying:2,bug:2,fighting:.5,ground:.5,steel:.5},
+ ghost:{psychic:2,ghost:2,dark:.5,normal:0},
+ dragon:{dragon:2,steel:.5,fairy:0},
+ dark:{psychic:2,ghost:2,fighting:.5,dark:.5,fairy:.5},
+ steel:{ice:2,rock:2,fairy:2,fire:.5,water:.5,electric:.5,steel:.5},
+ fairy:{fighting:2,dragon:2,dark:2,fire:.5,poison:.5,steel:.5},
+};
+function typeEff(mt,defs){ let m=1; for(const d of defs){ const v=CHART[mt]&&CHART[mt][d]; m*=(v===undefined?1:v); } return m; }
+
+// One physical + one special signature move per type (real moves, correct types/powers).
+const MOVES={
+ normal:{physical:{n:"Body Slam",p:85},special:{n:"Hyper Voice",p:90}},
+ fire:{physical:{n:"Flare Blitz",p:120},special:{n:"Flamethrower",p:90}},
+ water:{physical:{n:"Waterfall",p:80},special:{n:"Surf",p:90}},
+ electric:{physical:{n:"Wild Charge",p:90},special:{n:"Thunderbolt",p:90}},
+ grass:{physical:{n:"Power Whip",p:120},special:{n:"Energy Ball",p:90}},
+ ice:{physical:{n:"Ice Punch",p:75},special:{n:"Ice Beam",p:90}},
+ fighting:{physical:{n:"Close Combat",p:120},special:{n:"Aura Sphere",p:80}},
+ poison:{physical:{n:"Poison Jab",p:80},special:{n:"Sludge Bomb",p:90}},
+ ground:{physical:{n:"Earthquake",p:100},special:{n:"Earth Power",p:90}},
+ flying:{physical:{n:"Brave Bird",p:120},special:{n:"Air Slash",p:75}},
+ psychic:{physical:{n:"Zen Headbutt",p:80},special:{n:"Psychic",p:90}},
+ bug:{physical:{n:"X-Scissor",p:80},special:{n:"Bug Buzz",p:90}},
+ rock:{physical:{n:"Rock Slide",p:75},special:{n:"Power Gem",p:80}},
+ ghost:{physical:{n:"Phantom Force",p:90},special:{n:"Shadow Ball",p:80}},
+ dragon:{physical:{n:"Dragon Claw",p:80},special:{n:"Dragon Pulse",p:85}},
+ dark:{physical:{n:"Crunch",p:80},special:{n:"Dark Pulse",p:80}},
+ steel:{physical:{n:"Iron Head",p:80},special:{n:"Flash Cannon",p:80}},
+ fairy:{physical:{n:"Play Rough",p:90},special:{n:"Moonblast",p:95}},
+};
+const HP_MUL=2.4, DMG_SCALE=0.8, LV=50;
+
+function statSpread(mon){
+  if(mon.stats) return mon.stats;
+  const e=Math.round(mon.bst/6); return {hp:e,atk:e,def:e,spa:e,spd:e,spe:e};
+}
+function battleStats(mon){
+  const s=statSpread(mon);
+  return {
+    maxHp:Math.floor((Math.floor(2*s.hp*LV/100)+LV+10)*HP_MUL),
+    atk:Math.floor(2*s.atk*LV/100)+5, def:Math.floor(2*s.def*LV/100)+5,
+    spa:Math.floor(2*s.spa*LV/100)+5, spd:Math.floor(2*s.spd*LV/100)+5,
+    spe:Math.floor(2*s.spe*LV/100)+5,
+  };
+}
+function assignMoves(mon){
+  const s=statSpread(mon), cls=s.atk>=s.spa?"physical":"special";
+  const chosen=[], used=new Set();
+  const add=(t,c)=>{ const m=MOVES[t]&&(MOVES[t][c]||MOVES[t].physical||MOVES[t].special);
+    if(m&&!used.has(m.n)){ chosen.push({name:m.n,type:t,power:m.p,cls:c}); used.add(m.n); } };
+  mon.types.forEach(t=>add(t,cls));
+  if(mon.types.length===1) add(mon.types[0], cls==="physical"?"special":"physical");
+  const cover=["ice","ground","fighting","fairy","rock","electric","fire","dark"];
+  for(const t of [...cover,...Object.keys(MOVES)]){ if(chosen.length>=4) break; if(!mon.types.includes(t)) add(t,cls); }
+  return chosen.slice(0,4);
+}
+function calcDamage(atk,def,mv){
+  const A=mv.cls==="physical"?atk.b.atk:atk.b.spa, D=mv.cls==="physical"?def.b.def:def.b.spd;
+  let base=Math.floor(Math.floor(Math.floor((2*LV/5+2)*mv.power*A/D)/50)+2);
+  const stab=atk.mon.types.includes(mv.type)?1.5:1, eff=typeEff(mv.type,def.mon.types);
+  const crit=Math.random()<0.0625?1.5:1, rnd=0.85+Math.random()*0.15;
+  let d=Math.floor(base*stab*eff*crit*rnd*DMG_SCALE); if(eff>0) d=Math.max(1,d);
+  return {d,eff,crit:crit>1};
+}
+function bestMove(a,d){ let best=a.moves[0],bd=-1;
+  for(const mv of a.moves){ const A=mv.cls==="physical"?a.b.atk:a.b.spa, D=mv.cls==="physical"?d.b.def:d.b.spd;
+    const base=Math.floor(Math.floor((2*LV/5+2)*mv.power*A/D)/50)+2;
+    const est=base*(a.mon.types.includes(mv.type)?1.5:1)*typeEff(mv.type,d.mon.types);
+    if(est>bd){bd=est;best=mv;} }
+  return best;
+}
+function makeBattler(mon){
+  const b=battleStats(mon);
+  return {mon, b, moves:assignMoves(mon), hp:b.maxHp, max:b.maxHp, fainted:false};
+}
+
+/* ---------- battle flow ---------- */
+function startBattle(){
+  S.screen="battle";
+  S.bt={
+    teams:[ S.players[0].team.map(makeBattler), S.players[1].team.map(makeBattler) ],
+    names:[S.players[0].name, S.players[1].name],
+    ai:[false, S.players[1].ai],
+    active:[0,0], log:[], busy:false, over:false, winner:-1, auto:false,
+  };
+  renderBattle();
+  pushLog(`<span class="muted">The battle begins! ${escapeHtml(S.bt.names[0])} vs ${escapeHtml(S.bt.names[1])}.</span>`);
+  if(S.bt.auto) scheduleAuto(); else setPrompt();
+}
+function activeB(side){ return S.bt.teams[side][S.bt.active[side]]; }
+
+function renderBattle(){
+  const bt=S.bt;
+  $("app").innerHTML=`
+    <div class="bhead"><h2>Battle</h2><span class="disp" id="bcount"></span></div>
+    <div class="gb">
+      <div class="gb-field">
+        <div class="plat foe"></div><div class="plat you"></div>
+        <div class="bslot foeHp" id="foeHp"></div>
+        <div class="bslot foeMon" id="foeMon"></div>
+        <div class="bslot youMon" id="youMon"></div>
+        <div class="bslot youHp" id="youHp"></div>
+      </div>
+      <div class="gb-text" id="bLog"></div>
+      <div class="gb-menu" id="bMoves"></div>
+      <div class="bctrl"><button class="btn ghost" id="bAuto">${bt.auto?"Auto: On":"Auto-battle"}</button></div>
+    </div>`;
+  paintPanel(1); paintPanel(0);
+  renderMoves(); renderLog(); updateCount();
+  $("bAuto").onclick=()=>{
+    bt.auto=!bt.auto; $("bAuto").textContent=bt.auto?"Auto: On":"Auto-battle";
+    renderMoves();
+    if(bt.auto){ if(!bt.busy&&!bt.over) scheduleAuto(); }
+    else if(!bt.busy&&!bt.over) setPrompt();
+  };
+}
+// classic front/back pixel sprites (back = your side), with fallbacks
+function battleSprite(m, back){
+  const s=m.shiny?"/shiny":"";
+  if(back) return [`${SPR}/back${s}/${m.id}.png`, `${SPR}/back/${m.id}.png`, `${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, PH];
+  return [`${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, PH];
+}
+function setPrompt(){
+  if(!S.bt||S.bt.over) return;
+  S.bt.log=[`What will <b>${escapeHtml(activeB(0).mon.display)}</b> do?`];
+  renderLog();
+}
+function updateCount(){
+  const el=$("bcount"); if(!el) return;
+  const alive=s=>S.bt.teams[s].filter(x=>!x.fainted).length;
+  el.textContent=`${alive(0)} vs ${alive(1)} left`;
+}
+function paintPanel(side){
+  const bt=S.bt, bl=activeB(side), m=bl.mon;
+  const monHost=$(side===0?"youMon":"foeMon");
+  const hpHost =$(side===0?"youHp":"foeHp");
+  if(!monHost||!hpHost) return;
+  const back=side===0;
+  monHost.innerHTML=`<div class="bsprite ${bl.fainted?"fainted":""}" id="spr${side}"><img id="imgb${side}" alt="${escapeHtml(m.display)}"></div>`;
+  const img=$("imgb"+side); if(img) setSprite(img, battleSprite(m,back));
+  const dots=bt.teams[side].map(x=>`<span class="bdot ${x.fainted?"out":""}"></span>`).join("");
+  let nm=m.display; if(nm.length>13) nm=nm.slice(0,12)+"…";
+  const shinyTag=m.shiny?' <span style="color:#d8a828">✦</span>':"";
+  hpHost.innerHTML=`
+    <div class="gb-box hpbox">
+      <div class="hb-top"><span class="hb-name">${escapeHtml(nm)}${shinyTag}</span><span class="hb-lv">Lv${LV}</span></div>
+      <div class="hb-bar"><span class="hb-hp">HP</span><div class="hpbar"><div class="hpfill" id="hp${side}"></div></div></div>
+      ${side===0?`<div class="hb-num" id="hpn0"></div>`:`<span id="hpn1" style="display:none"></span>`}
+      <div class="hb-dots">${dots}</div>
+    </div>`;
+  setHp(side,false);
+}
+function setHp(side,animate){
+  const bl=activeB(side), fill=$("hp"+side), num=$("hpn"+side);
+  if(!fill) return;
+  const pct=Math.max(0, bl.hp/bl.max*100);
+  if(!animate) fill.style.transition="none";
+  fill.style.width=pct+"%";
+  if(!animate) requestAnimationFrame(()=>{ fill.style.transition=""; });
+  fill.className="hpfill"+(pct<=20?" low":pct<=50?" mid":"");
+  if(num) num.textContent=`${Math.max(0,Math.ceil(bl.hp))}/${bl.max}`;
+}
+function renderMoves(){
+  const host=$("bMoves"); if(!host) return;
+  const bt=S.bt, me=activeB(0);
+  const disabled = bt.busy||bt.over||bt.auto||bt.ai[0];
+  host.innerHTML=me.moves.map((mv,i)=>{
+    const col=TYPE_COLORS[mv.type]||"#777";
+    return `<button class="mvb" data-i="${i}" ${disabled?"disabled":""}>
+       <span class="mv-dot" style="background:${col}"></span>${mv.name}
+       <span class="mv-sub">${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}</span>
+     </button>`;
+  }).join("");
+  if(!disabled) host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>doTurn(+b.dataset.i));
+}
+function shade(hex){ // darken a hex color for gradient
+  const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  r=Math.floor(r*.7);g=Math.floor(g*.7);b=Math.floor(b*.7);
+  return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+function pushLog(html){ S.bt.log.push(html); if(S.bt.log.length>3) S.bt.log.shift(); renderLog(); }
+function renderLog(){ const el=$("bLog"); if(el) el.innerHTML=S.bt.log.join("<br>"); }
+function effWord(e){
+  if(e===0) return ' <span class="muted">It had no effect…</span>';
+  if(e>=2)  return ' <span class="eff">It\'s super effective!</span>';
+  if(e>0&&e<1) return ' <span class="muted">It\'s not very effective…</span>';
+  return "";
+}
+
+async function doTurn(p1MoveIdx){
+  const bt=S.bt; if(bt.busy||bt.over) return;
+  bt.busy=true; renderMoves();
+  const you=activeB(0), foe=activeB(1);
+  const m0 = (bt.ai[0]||bt.auto) ? bestMove(you,foe) : you.moves[p1MoveIdx];
+  const m1 = bestMove(foe,you);
+  const first = you.b.spe>foe.b.spe || (you.b.spe===foe.b.spe && Math.random()<.5) ? 0 : 1;
+  const seq = first===0 ? [[0,you,foe,m0],[1,foe,you,m1]] : [[1,foe,you,m1],[0,you,foe,m0]];
+  for(const [side,atk,def,mv] of seq){
+    if(atk.fainted||def.fainted) continue;
+    await performMove(side,atk,def,mv);
+    if(bt.over) break;
+  }
+  if(!bt.over) await handleFaints();
+  bt.busy=false;
+  if(bt.over){ setTimeout(showBattleResult,900); return; }
+  paintPanel(0); paintPanel(1); renderMoves(); updateCount();
+  if(bt.auto||bt.ai[0]) scheduleAuto(); else setPrompt();
+}
+async function performMove(side,atk,def,mv){
+  const bt=S.bt, defSide=1-side;
+  pushLog(`${escapeHtml(atk.mon.display)} used <b>${mv.name}</b>!`);
+  beep(side===0?520:300,.05,"square",.04);
+  await wait(320);
+  const r=calcDamage(atk,def,mv);
+  def.hp-=r.d;
+  const sp=$("spr"+defSide); if(sp){ sp.classList.add("hitflash"); setTimeout(()=>sp.classList.remove("hitflash"),400); }
+  setHp(defSide,true);
+  let extra=effWord(r.eff)+(r.crit&&r.eff>0?' <span class="crit">A critical hit!</span>':"");
+  if(extra) pushLog(extra.trim());
+  await wait(560);
+  if(def.hp<=0){
+    def.hp=0; def.fainted=true; setHp(defSide,true);
+    const sd=$("spr"+defSide); if(sd) sd.classList.add("fainted");
+    pushLog(`<span class="muted">${escapeHtml(def.mon.display)} fainted!</span>`);
+    beep(160,.25,"sawtooth",.05);
+    await wait(650);
+  }
+}
+async function handleFaints(){
+  const bt=S.bt;
+  for(let side=0;side<2;side++){
+    if(activeB(side).fainted){
+      const next=bt.teams[side].findIndex(x=>!x.fainted);
+      if(next<0){ bt.over=true; bt.winner=1-side; return; }
+      bt.active[side]=next;
+      paintPanel(side);
+      const who = side===0 ? "You" : escapeHtml(bt.names[1]);
+      pushLog(`<span class="muted">${who} sent out ${escapeHtml(activeB(side).mon.display)}!</span>`);
+      beep(700,.08,"sine",.04);
+      await wait(650);
+    }
+  }
+}
+function scheduleAuto(){
+  const bt=S.bt; if(bt.over||bt.busy) return;
+  setTimeout(()=>{ if(!bt.over && !bt.busy && (bt.auto||bt.ai[0])) doTurn(0); }, 700);
+}
+
+/* ---------- battle result ---------- */
+function showBattleResult(){
+  const bt=S.bt;
+  const winName=bt.names[bt.winner];
+  sfxWin(); confetti();
+  const teamCell=(side)=>bt.teams[side].map(x=>
+    `<div class="vsmon ${x.mon.shiny?"shiny":""} ${x.fainted?"":""}" title="${escapeHtml(x.mon.display)}" style="${x.fainted?"opacity:.3;filter:grayscale(1)":""}">
+       <img data-id="${x.mon.id}" data-shiny="${x.mon.shiny?1:0}" alt=""></div>`).join("");
+  const survivors=side=>bt.teams[side].filter(x=>!x.fainted).length;
+  $("app").innerHTML=`
+    <div class="results">
+      <div style="font-family:var(--display);color:var(--muted);letter-spacing:2px;font-size:13px">— KNOCKOUT —</div>
+      <div class="winner">🏆 ${escapeHtml(winName)}</div>
+      <div style="color:var(--muted);font-size:13px">wins the battle with ${survivors(bt.winner)} Pokémon standing</div>
+      <div class="vs">
+        <div class="vscol ${bt.winner===0?"win":""}">
+          <h3>${escapeHtml(bt.names[0])}</h3>
+          <div class="vstotal">${survivors(0)}/6</div>
+          <div class="vsteam">${teamCell(0)}</div>
+        </div>
+        <div class="vsmid">VS</div>
+        <div class="vscol ${bt.winner===1?"win":""}">
+          <h3>${escapeHtml(bt.names[1])}${bt.ai[1]?" 🤖":""}</h3>
+          <div class="vstotal">${survivors(1)}/6</div>
+          <div class="vsteam">${teamCell(1)}</div>
+        </div>
+      </div>
+      <button class="btn" id="brematch">Battle again — same teams</button>
+      <button class="btn ghost" id="bnew" style="margin-top:10px">New draft</button>
+      <button class="btn ghost" id="bmenu" style="margin-top:10px">Change settings</button>
+    </div>
+    <div class="foot">Tip: speed decides who strikes first — a fast glass cannon can win before it's hit.</div>`;
+  hydrateSprites($("app"));
+  $("brematch").onclick=startBattle;
+  $("bnew").onclick=()=>{
+    S.players=[
+      {name:S.p1name, ai:false, team:[], noGoRoundLeft:0},
+      {name:S.p2name, ai:S.p2ai, team:[], noGoRoundLeft:0},
+    ];
+    S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
+  };
+  $("bmenu").onclick=()=>{ S.screen="setup"; render(); };
+}
+
+/* ---------- boot ---------- */
+render();
+loadData(); // warm up in background
+</script>
+</body>
+</html>
