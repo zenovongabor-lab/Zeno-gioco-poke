@@ -10,6 +10,9 @@ The whole game is a single self-contained file: [`index.html`](./index.html).
 
 1. **Setup screen** — choose:
    - **Player 2**: AI Rival or a second human (pass-and-play).
+   - **AI difficulty** (when Player 2 is the AI): *Easy* (settles for whatever
+     it opens), *Normal* (holds out for decent picks), or *Hard* (ruthless
+     drafting and always-optimal battle moves).
    - **No Go reroll**: once per round each player may reject a ball and open a
      different one (Off / 1 / 2 per round).
    - **Ending**: **Battle** (the two teams fight) or **Power total** (highest
@@ -22,7 +25,8 @@ The whole game is a single self-contained file: [`index.html`](./index.html).
    - Optional trainer names.
 2. **Draft** — six rounds. Each turn, four mystery balls appear. Tap one to
    reveal the Pokémon inside, then **Keep** it or spend a **No Go** to try a
-   different ball.
+   different ball. Every Pokémon is **unique** — once a species is drafted by
+   either player, it can't appear again for the rest of the game.
 3. **Finish** — depending on your Ending choice you get a VS power scoreboard
    or a full turn-based battle with the real type chart, STAB, damage rolls,
    critical hits, HP bars, and faint-and-switch.

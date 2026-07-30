@@ -399,8 +399,8 @@ const FALLBACK_MAP = Object.fromEntries(FALLBACK.map(f=>[f[0],f]));
 /* ---------------- state ---------------- */
 const S = {
   screen:"setup",
-  p2ai:true, noGoPerRound:1, drawStyle:"fair", shinyRate:0.08, sound:true, battleMode:true,
-  region:0, noLegendaries:false,
+  p2ai:true, aiLevel:"normal", noGoPerRound:1, drawStyle:"fair", shinyRate:0.08, sound:true, battleMode:true,
+  region:0, noLegendaries:false, taken:new Set(),
   p1name:"Player 1", p2name:"AI Rival",
   players:null, round:1, cur:0,
   balls:[], activeIdx:null, busy:false,
@@ -559,9 +559,13 @@ async function fetchMon(name){
   S.cache[name]=mon; return mon;
 }
 
-async function rollMon(){
+async function rollMon(exclude){
   const shiny=Math.random()<S.shinyRate;
-  const pool=(S.pool&&S.pool.length)?S.pool:S.pokedex;
+  let pool=(S.pool&&S.pool.length)?S.pool:S.pokedex;
+  if(exclude&&exclude.size){
+    const left=pool.filter(n=>!exclude.has(n));
+    if(left.length) pool=left;    // fall back to full pool only if nothing's left
+  }
   if(S.apiOk){
     for(let t=0;t<6;t++){
       try{
@@ -576,20 +580,31 @@ async function rollMon(){
   return {name:f[0],id:f[1],bst:f[2],types:f[3],shiny,imgList,img:imgList[0],
           ...parseName(f[0])};
 }
+// Roll a Pokémon that isn't already taken/duplicated, and reserve its name.
+async function rollUnique(used){
+  const m=await rollMon(used);
+  if(used) used.add(m.name);
+  return m;
+}
 
 // Build the 4 balls for a turn according to the chosen draw style.
+// No duplicates: exclude everything already drafted by either player,
+// and keep the four balls distinct from one another too.
 async function generateTurnMons(){
+  const used=new Set(S.taken);
   if(S.drawStyle==="fair"){
-    const K=8;
-    const c=await Promise.all(Array.from({length:K},()=>rollMon()));
+    const K=8, c=[];
+    for(let i=0;i<K;i++) c.push(await rollUnique(used));
     c.sort((a,b)=>a.bst-b.bst);
     const nStrong=pickWeighted([[2,58],[1,16],[3,16],[0,5],[4,5]]);
     const strong=c.slice(c.length-nStrong);   // strongest of the batch
     const weak=c.slice(0,4-nStrong);           // weakest of the batch
     return shuffle([...strong,...weak]);
   }
-  // classic / chaos: pure luck, each ball independent
-  return Promise.all([rollMon(),rollMon(),rollMon(),rollMon()]);
+  // classic / chaos: pure luck, each ball independent (still no duplicates)
+  const four=[];
+  for(let i=0;i<4;i++) four.push(await rollUnique(used));
+  return four;
 }
 
 /* ============================================================
@@ -618,6 +633,15 @@ function renderSetup(){
         <div class="choices" id="c-p2">
           <div class="chip ${S.p2ai?"on":""}" data-v="ai">AI Rival<small>Auto-drafts</small></div>
           <div class="chip ${!S.p2ai?"on":""}" data-v="human">Human<small>Pass & play</small></div>
+        </div>
+      </div>
+
+      <div class="field" id="f-diff" style="${S.p2ai?"":"display:none"}">
+        <label>AI difficulty <span class="hint">— how tough the rival drafts &amp; battles</span></label>
+        <div class="choices" id="c-diff">
+          <div class="chip ${S.aiLevel==="easy"?"on":""}" data-v="easy">Easy<small>Takes what it gets</small></div>
+          <div class="chip ${S.aiLevel==="normal"?"on":""}" data-v="normal">Normal<small>Plays smart</small></div>
+          <div class="chip ${S.aiLevel==="hard"?"on":""}" data-v="hard">Hard<small>Ruthless picks</small></div>
         </div>
       </div>
 
@@ -674,11 +698,12 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v7 — battle mode</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v8 — AI levels + no doubles</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
-  bindChips("c-p2",v=>{S.p2ai=(v==="ai"); const n2=$("n2"); if(n2) n2.placeholder=S.p2ai?"AI Rival":"Player 2";});
+  bindChips("c-p2",v=>{S.p2ai=(v==="ai"); const n2=$("n2"); if(n2) n2.placeholder=S.p2ai?"AI Rival":"Player 2"; const fd=$("f-diff"); if(fd) fd.style.display=S.p2ai?"":"none";});
+  bindChips("c-diff",v=>{S.aiLevel=v;});
   bindChips("c-ng",v=>{S.noGoPerRound=+v;});
   bindChips("c-end",v=>{S.battleMode=(v==="battle");});
   bindChips("c-ds",v=>{S.drawStyle=v; updatePreview();});
@@ -723,6 +748,7 @@ async function startGame(){
     {name:S.p1name, ai:false,  team:[], noGoRoundLeft:0},
     {name:S.p2name, ai:S.p2ai, team:[], noGoRoundLeft:0},
   ];
+  S.taken=new Set();
   S.round=1; S.cur=0; S.screen="game";
   if(!S.pokedex.length){ $("start").disabled=true; $("loadline").textContent="Loading Pokédex…"; await loadData(); }
   computePool();
@@ -912,6 +938,7 @@ function keepMon(){
   const p=S.players[S.cur];
   const m=S.balls[S.activeIdx].mon;
   p.team.push(m);
+  S.taken.add(m.name);   // lock this species out for both players
   beep(880,.1,"triangle",.05);
   hideReveal();
   // pop the newly filled slot after roster repaint
@@ -937,6 +964,8 @@ async function useNoGo(){
 /* ---------- AI ---------- */
 async function aiTurn(){
   const p=S.players[S.cur];
+  // difficulty = how high the rival's standards are before it settles for a ball
+  const keepTh = S.aiLevel==="easy" ? 0 : S.aiLevel==="hard" ? 530 : 470;
   await wait(650);
   while(true){
     const closed=S.balls.map((b,i)=>b.state==="closed"?i:-1).filter(i=>i>=0);
@@ -945,10 +974,11 @@ async function aiTurn(){
     await wait(950);
     const m=S.balls[i].mon;
     const othersLeft=closed.length-1;
-    const wantKeep = m.shiny||m.mega||m.gmax||m.bst>=480||p.noGoRoundLeft<=0||othersLeft<=0;
+    const rare = m.shiny||m.mega||m.gmax;
+    const wantKeep = rare||m.bst>=keepTh||p.noGoRoundLeft<=0||othersLeft<=0;
     const note=$("aiNote");
     if(wantKeep){
-      if(note) note.textContent=(m.shiny||m.mega||m.gmax)?"“I'll take that — rare one!”":(m.bst>=480?"“Strong enough. Keeping it.”":"“I'll keep this.”");
+      if(note) note.textContent = rare?"“I'll take that — rare one!”":(keepTh>0&&m.bst>=keepTh?"“Strong enough. Keeping it.”":"“I'll keep this.”");
       await wait(700);
       keepMon();
       return;
@@ -1019,7 +1049,7 @@ function renderResults(){
       {name:S.p1name, ai:false,  team:[], noGoRoundLeft:0},
       {name:S.p2name, ai:S.p2ai, team:[], noGoRoundLeft:0},
     ];
-    S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
+    S.taken=new Set(); S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
   };
   $("menu").onclick=()=>{ S.screen="setup"; render(); };
 }
@@ -1124,6 +1154,12 @@ function bestMove(a,d){ let best=a.moves[0],bd=-1;
     const est=base*(a.mon.types.includes(mv.type)?1.5:1)*typeEff(mv.type,d.mon.types);
     if(est>bd){bd=est;best=mv;} }
   return best;
+}
+// AI move choice by difficulty: easy blunders often, normal now and then, hard never.
+function aiMove(a,d,lvl){
+  if(lvl==="easy")   return Math.random()<0.55 ? rnd(a.moves) : bestMove(a,d);
+  if(lvl==="normal") return Math.random()<0.20 ? rnd(a.moves) : bestMove(a,d);
+  return bestMove(a,d);
 }
 function makeBattler(mon){
   const b=battleStats(mon);
@@ -1248,7 +1284,7 @@ async function doTurn(p1MoveIdx){
   bt.busy=true; renderMoves();
   const you=activeB(0), foe=activeB(1);
   const m0 = (bt.ai[0]||bt.auto) ? bestMove(you,foe) : you.moves[p1MoveIdx];
-  const m1 = bestMove(foe,you);
+  const m1 = bt.ai[1] ? aiMove(foe,you,S.aiLevel) : bestMove(foe,you);
   const first = you.b.spe>foe.b.spe || (you.b.spe===foe.b.spe && Math.random()<.5) ? 0 : 1;
   const seq = first===0 ? [[0,you,foe,m0],[1,foe,you,m1]] : [[1,foe,you,m1],[0,you,foe,m0]];
   for(const [side,atk,def,mv] of seq){
@@ -1341,7 +1377,7 @@ function showBattleResult(){
       {name:S.p1name, ai:false, team:[], noGoRoundLeft:0},
       {name:S.p2name, ai:S.p2ai, team:[], noGoRoundLeft:0},
     ];
-    S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
+    S.taken=new Set(); S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
   };
   $("bmenu").onclick=()=>{ S.screen="setup"; render(); };
 }
