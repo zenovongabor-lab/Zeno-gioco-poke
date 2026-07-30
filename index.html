@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Il gioco di Pokémon di Zeno</title>
+<style>
+  :root{
+    --bg1:#1b2a4a; --bg2:#24406b; --panel:#0f1a30; --panel2:#16264a;
+    --ink:#f4f7ff; --muted:#a9bce0; --gold:#ffd23f; --grass:#57cc58;
+    --fire:#ff7043; --water:#42a5f5; --hp-ok:#39d353; --hp-mid:#ffd23f; --hp-low:#ff5252;
+    --line:rgba(255,255,255,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(1200px 800px at 50% -10%,var(--bg2),var(--bg1)) fixed;
+    display:flex;align-items:center;justify-content:center;
+    padding:14px;min-height:100dvh;
+  }
+  #app{
+    width:100%;max-width:520px;background:var(--panel);
+    border:3px solid var(--line);border-radius:22px;overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.5);
+  }
+  .topbar{
+    display:flex;align-items:center;gap:10px;padding:12px 16px;
+    background:linear-gradient(90deg,#e3350d,#ff6a3d);
+  }
+  .ball{width:26px;height:26px;border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 50%,#fff 0 5px,#333 5px 7px,transparent 7px),
+      linear-gradient(#ee1515 0 50%,#f0f0f0 50% 100%);
+    border:2px solid #222;flex:0 0 auto}
+  .topbar h1{font-size:18px;margin:0;letter-spacing:.3px;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+  .screen{padding:18px}
+  .hidden{display:none!important}
+  .center{text-align:center}
+  .muted{color:var(--muted)}
+  button{
+    font-family:inherit;font-weight:700;cursor:pointer;color:var(--ink);
+    background:var(--panel2);border:2px solid var(--line);border-radius:14px;
+    padding:12px 14px;font-size:15px;transition:transform .06s ease,filter .15s;
+  }
+  button:hover{filter:brightness(1.15)}
+  button:active{transform:translateY(1px) scale(.99)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:linear-gradient(#ffd23f,#f5a623);color:#3a2400;border-color:#00000030}
+  .grid{display:grid;gap:12px}
+  .grid-2{grid-template-columns:1fr 1fr}
+  .card{
+    background:var(--panel2);border:2px solid var(--line);border-radius:16px;padding:14px;
+  }
+  .starter{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .emoji-big{font-size:56px;line-height:1}
+  .name{font-weight:800}
+  .type-badge{font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px;color:#0b1220}
+  .t-grass{background:var(--grass)} .t-fire{background:var(--fire)} .t-water{background:var(--water)}
+  .t-normal{background:#c9c9c9} .t-electric{background:#ffdf5e}
+
+  /* Battle */
+  .arena{
+    position:relative;border-radius:16px;overflow:hidden;
+    background:
+      linear-gradient(180deg,#7ec4ff 0%,#b8e6ff 55%,#8fd98f 55%,#63c063 100%);
+    height:190px;border:2px solid var(--line);
+  }
+  .mon{position:absolute;text-align:center}
+  .foe{top:14px;right:22px}
+  .self{bottom:6px;left:22px}
+  .mon .sprite{font-size:60px;filter:drop-shadow(0 6px 4px rgba(0,0,0,.25))}
+  .self .sprite{transform:scaleX(-1)}
+  .shadow{width:70px;height:12px;margin:0 auto;border-radius:50%;
+    background:rgba(0,0,0,.22);filter:blur(2px)}
+  .nameplate{
+    background:rgba(9,15,28,.82);border:2px solid var(--line);border-radius:12px;
+    padding:7px 10px;min-width:150px;
+  }
+  .foeplate{position:absolute;left:14px;top:12px}
+  .selfplate{position:absolute;right:14px;bottom:10px}
+  .nameplate .row{display:flex;justify-content:space-between;font-size:13px;font-weight:800;margin-bottom:5px}
+  .hpbar{height:9px;border-radius:6px;background:#00000055;overflow:hidden}
+  .hpfill{height:100%;width:100%;background:var(--hp-ok);transition:width .5s ease,background .3s}
+  .log{
+    background:#0b1322;border:2px solid var(--line);border-radius:12px;
+    padding:12px;min-height:56px;margin:12px 0;font-size:14.5px;line-height:1.4;
+  }
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .move{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left}
+  .move small{font-weight:700;opacity:.75}
+  .hit{animation:hit .4s}
+  @keyframes hit{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .faint{animation:faint .8s forwards}
+  @keyframes faint{to{transform:translateY(24px) scale(.6);opacity:0}}
+  .pop{animation:pop .35s}
+  @keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .stat{display:flex;justify-content:space-between;font-size:14px;padding:6px 2px;border-bottom:1px dashed var(--line)}
+  .dexgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .dexcell{background:var(--panel2);border:2px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+  .dexcell.empty{opacity:.4}
+  .dexcell .emoji-big{font-size:40px}
+  .tag{display:inline-block;font-size:12px;font-weight:800;color:var(--gold)}
+  .footerbar{display:flex;gap:10px;padding:12px 16px;border-top:2px solid var(--line);background:var(--panel)}
+  .footerbar button{flex:1}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:#0b1322;border:2px solid var(--gold);color:var(--gold);
+    padding:10px 16px;border-radius:12px;font-weight:800;box-shadow:0 10px 30px #0008;z-index:20}
+  h2{margin:2px 0 12px}
+  .kbd{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="ball" aria-hidden="true"></div>
+    <h1>Il gioco di Pokémon di Zeno</h1>
+  </div>
+
+  <!-- START SCREEN -->
+  <section id="screen-start" class="screen center">
+    <div class="emoji-big">🎮✨</div>
+    <h2>Ciao, Zeno!</h2>
+    <p class="muted">Diventa il miglior Allenatore! Scegli il tuo compagno,<br>esplora l'erba alta, combatti e cattura i Pokémon.</p>
+    <div class="grid" style="margin-top:14px">
+      <button class="btn-primary" onclick="goChoose()">▶️ Inizia l'avventura</button>
+      <button onclick="showDex()">📕 Pokédex</button>
+    </div>
+    <p class="kbd" style="margin-top:16px">Suggerimento: usa le mosse forti contro il tipo giusto! 💧&gt;🔥 &nbsp; 🔥&gt;🌿 &nbsp; 🌿&gt;💧</p>
+  </section>
+
+  <!-- CHOOSE STARTER -->
+  <section id="screen-choose" class="screen hidden">
+    <h2 class="center">Scegli il tuo primo Pokémon</h2>
+    <div class="grid grid-2" id="starter-list"></div>
+    <p class="muted center" style="margin-top:14px">Tocca un Pokémon per sceglierlo.</p>
+  </section>
+
+  <!-- BATTLE -->
+  <section id="screen-battle" class="screen hidden">
+    <div class="arena" id="arena">
+      <div class="nameplate foeplate">
+        <div class="row"><span id="foe-name">???</span><span id="foe-lvl">Lv 3</span></div>
+        <div class="hpbar"><div class="hpfill" id="foe-hp"></div></div>
+      </div>
+      <div class="mon foe" id="foe-mon">
+        <div class="sprite" id="foe-sprite">❓</div>
+        <div class="shadow"></div>
+      </div>
+      <div class="mon self" id="self-mon">
+        <div class="sprite" id="self-sprite">❓</div>
+        <div class="shadow"></div>
+      </div>
+      <div class="nameplate selfplate">
+        <div class="row"><span id="self-name">???</span><span id="self-lvl">Lv 5</span></div>
+        <div class="hpbar"><div class="hpfill" id="self-hp"></div></div>
+        <div class="row" style="margin:5px 0 0"><span class="muted" style="font-size:11px" id="self-hpnum">20/20</span></div>
+      </div>
+    </div>
+    <div class="log" id="log">Un Pokémon selvatico è apparso!</div>
+    <div class="actions" id="actions"></div>
+  </section>
+
+  <!-- POKEDEX / COLLECTION -->
+  <section id="screen-dex" class="screen hidden">
+    <h2 class="center">📕 Pokédex di Zeno</h2>
+    <p class="muted center" id="dex-count">Catturati: 0</p>
+    <div class="dexgrid" id="dexgrid"></div>
+  </section>
+
+  <div class="footerbar" id="footer">
+    <button onclick="explore()" id="btn-explore">🌿 Esplora</button>
+    <button onclick="showDex()">📕 Pokédex</button>
+    <button onclick="showTeam()">⭐ Squadra</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Il gioco di Pokémon di Zeno — un gioco a turni tutto in una
+   pagina. Nessuna libreria, nessun asset esterno: gira ovunque.
+   ============================================================ */
+
+// --- Type effectiveness (rock-paper-scissors style) ---
+const STRONG = { fire:'grass', grass:'water', water:'fire', electric:'water' };
+function effIcon(t){return {grass:'🌿',fire:'🔥',water:'💧',normal:'⭐',electric:'⚡'}[t]||'⭐';}
+function typeClass(t){return 't-'+t;}
+
+// --- Move pool ---
+const MOVES = {
+  graffio:   {name:'Graffio',  type:'normal',  power:7},
+  foglialama:{name:'Foglialama',type:'grass',  power:9},
+  braciere:  {name:'Braciere', type:'fire',    power:9},
+  idropompa: {name:'Idropompa', type:'water',   power:9},
+  scintilla: {name:'Scintilla', type:'electric', power:9},
+  morso:     {name:'Morso',    type:'normal',  power:8},
+  ventata:   {name:'Ventata',  type:'normal',  power:6},
+};
+
+// --- Pokédex (original friendly creatures) ---
+const DEX = [
+  {id:1, name:'Fogliolo',  emoji:'🌱', type:'grass',    moves:['foglialama','graffio']},
+  {id:2, name:'Fiammetto', emoji:'🦎', type:'fire',     moves:['braciere','graffio']},
+  {id:3, name:'Gocciotto', emoji:'🐢', type:'water',    moves:['idropompa','morso']},
+  {id:4, name:'Scoiattgto',emoji:'🐿️', type:'normal',   moves:['graffio','ventata']},
+  {id:5, name:'Pipipì',    emoji:'🐤', type:'electric', moves:['scintilla','ventata']},
+  {id:6, name:'Vespetta',  emoji:'🐝', type:'grass',    moves:['foglialama','morso']},
+  {id:7, name:'Focarello', emoji:'🔥', type:'fire',     moves:['braciere','morso']},
+  {id:8, name:'Bollicino', emoji:'🐙', type:'water',    moves:['idropompa','ventata']},
+  {id:9, name:'Riccetto',  emoji:'🦔', type:'normal',   moves:['graffio','morso']},
+  {id:10,name:'Lampetto',  emoji:'⚡', type:'electric', moves:['scintilla','graffio']},
+];
+const STARTERS = [DEX[0], DEX[1], DEX[2], DEX[4]];
+
+// --- Game state ---
+const state = {
+  player:null,          // player's active Pokémon (instance)
+  foe:null,
+  caught:{},            // id -> true
+  team:[],              // captured instances
+  busy:false,
+};
+
+// --- Helpers ---
+const $ = id => document.getElementById(id);
+function show(screen){
+  ['start','choose','battle','dex','team'].forEach(s=>{
+    const el=$('screen-'+s); if(el) el.classList.add('hidden');
+  });
+  $('screen-'+screen).classList.remove('hidden');
+  $('footer').classList.toggle('hidden', screen==='start'||screen==='choose'||screen==='battle');
+}
+function makeMon(base, level){
+  const maxhp = 16 + level*2 + base.id; // varied bulk
+  return {base, level, maxhp, hp:maxhp,
+          name:base.name, emoji:base.emoji, type:base.type, moves:base.moves};
+}
+function toast(msg){
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),1800);
+}
+function log(msg){ $('log').innerHTML = msg; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function hpColor(frac){ return frac>.5?'var(--hp-ok)':frac>.22?'var(--hp-mid)':'var(--hp-low)'; }
+
+// ============================================================
+//  Navigation
+// ============================================================
+function goChoose(){
+  const list=$('starter-list'); list.innerHTML='';
+  STARTERS.forEach(p=>{
+    const b=document.createElement('button');
+    b.className='card starter';
+    b.innerHTML=`<div class="emoji-big">${p.emoji}</div>
+      <div class="name">${p.name}</div>
+      <span class="type-badge ${typeClass(p.type)}">${effIcon(p.type)} ${p.type}</span>`;
+    b.onclick=()=>chooseStarter(p);
+    list.appendChild(b);
+  });
+  show('choose');
+}
+function chooseStarter(base){
+  const mon = makeMon(base, 5);
+  state.player = mon;
+  state.team = [mon];
+  state.caught[base.id] = true;
+  toast(`${base.name} è con te! ⭐`);
+  explore();
+}
+
+// ============================================================
+//  Exploration → wild encounter
+// ============================================================
+function explore(){
+  if(!state.player){ goChoose(); return; }
+  // pick a wild pokemon that isn't the exact same species always
+  const pool = DEX.filter(d=>d.id!==state.player.base.id);
+  const base = pool[Math.floor(Math.random()*pool.length)];
+  const lvl = Math.max(2, state.player.level - 2 + Math.floor(Math.random()*3));
+  state.foe = makeMon(base, lvl);
+  // heal player a little between fights so it stays fun
+  state.player.hp = Math.min(state.player.maxhp, state.player.hp + Math.ceil(state.player.maxhp*0.4));
+  startBattle();
+}
+
+function startBattle(){
+  show('battle');
+  const p=state.player, f=state.foe;
+  $('foe-name').textContent=f.name; $('foe-lvl').textContent='Lv '+f.level;
+  $('foe-sprite').textContent=f.emoji; $('foe-sprite').className='sprite pop';
+  $('self-name').textContent=p.name; $('self-lvl').textContent='Lv '+p.level;
+  $('self-sprite').textContent=p.emoji; $('self-sprite').className='sprite pop';
+  updateHP();
+  log(`Un <b>${f.name}</b> selvatico è apparso!`);
+  renderActions();
+}
+
+function updateHP(){
+  const p=state.player, f=state.foe;
+  const pf=Math.max(0,p.hp/p.maxhp), ff=Math.max(0,f.hp/f.maxhp);
+  const pb=$('self-hp'), fb=$('foe-hp');
+  pb.style.width=(pf*100)+'%'; pb.style.background=hpColor(pf);
+  fb.style.width=(ff*100)+'%'; fb.style.background=hpColor(ff);
+  $('self-hpnum').textContent=`${Math.max(0,Math.round(p.hp))}/${p.maxhp}`;
+}
+
+function renderActions(){
+  const a=$('actions'); a.innerHTML='';
+  state.player.moves.forEach(mk=>{
+    const m=MOVES[mk];
+    const b=document.createElement('button');
+    b.className='move';
+    b.innerHTML=`<span>${effIcon(m.type)} ${m.name}</span><small>${m.type} · forza ${m.power}</small>`;
+    b.onclick=()=>playerMove(mk);
+    a.appendChild(b);
+  });
+  const catchBtn=document.createElement('button');
+  catchBtn.className='btn-primary move';
+  catchBtn.innerHTML=`<span>🔴 Cattura</span><small>più facile se ha pochi PS</small>`;
+  catchBtn.onclick=tryCatch;
+  a.appendChild(catchBtn);
+
+  const runBtn=document.createElement('button');
+  runBtn.className='move';
+  runBtn.innerHTML=`<span>🏃 Fuggi</span><small>torna a esplorare</small>`;
+  runBtn.onclick=()=>{ toast('Sei fuggito!'); explore(); };
+  a.appendChild(runBtn);
+}
+
+function damage(attacker, defender, move){
+  const m=MOVES[move];
+  let dmg = m.power + Math.floor(Math.random()*3) + Math.floor(attacker.level/2);
+  let mult = 1;
+  if(STRONG[m.type]===defender.type) mult=2;          // super effective
+  else if(STRONG[defender.type]===m.type) mult=0.5;   // not very effective
+  dmg = Math.max(1, Math.round(dmg*mult));
+  defender.hp -= dmg;
+  return {dmg, mult};
+}
+
+async function playerMove(mk){
+  if(state.busy) return; state.busy=true;
+  disableActions(true);
+  const m=MOVES[mk];
+  const r=damage(state.player, state.foe, mk);
+  $('foe-mon').classList.add('hit');
+  log(`${state.player.name} usa <b>${m.name}</b>!`);
+  await sleep(450); $('foe-mon').classList.remove('hit');
+  updateHP();
+  if(r.mult>1) log(`È superefficace! 💥 (-${r.dmg} PS)`);
+  else if(r.mult<1) log(`Non è molto efficace… (-${r.dmg} PS)`);
+  else log(`Colpito! (-${r.dmg} PS)`);
+  await sleep(650);
+
+  if(state.foe.hp<=0){ return winBattle(); }
+  await foeTurn();
+  state.busy=false; disableActions(false);
+}
+
+async function foeTurn(){
+  const f=state.foe;
+  const mk=f.moves[Math.floor(Math.random()*f.moves.length)];
+  const m=MOVES[mk];
+  const r=damage(f, state.player, mk);
+  $('self-mon').classList.add('hit');
+  log(`${f.name} usa <b>${m.name}</b>!`);
+  await sleep(450); $('self-mon').classList.remove('hit');
+  updateHP();
+  if(r.mult>1) log(`Che colpo! È superefficace! (-${r.dmg} PS)`);
+  else log(`${state.player.name} subisce ${r.dmg} PS.`);
+  await sleep(650);
+  if(state.player.hp<=0){ return loseBattle(); }
+}
+
+async function tryCatch(){
+  if(state.busy) return; state.busy=true; disableActions(true);
+  log('Lanci una Poké Ball… 🔴');
+  const f=state.foe;
+  const frac=f.hp/f.maxhp;
+  const chance = 0.55 - frac*0.45 + (state.caught[f.base.id]?0.2:0); // easier when weak
+  await sleep(700);
+  if(Math.random() < Math.max(0.12, chance)){
+    log('Uno… due… tre… 🎉');
+    await sleep(700);
+    $('foe-mon').classList.add('faint');
+    const already=state.caught[f.base.id];
+    state.caught[f.base.id]=true;
+    const inst=makeMon(f.base, f.level); inst.hp=inst.maxhp;
+    if(state.team.length<6) state.team.push(inst);
+    await sleep(600);
+    toast(`Hai catturato ${f.name}! 🎉`);
+    log(`<b>${f.name}</b> è stato catturato!${already?'':' Nuova voce nel Pokédex! 📕'}`);
+    await sleep(900);
+    explore();
+    state.busy=false;
+  } else {
+    log(`Oh no! ${f.name} è uscito dalla ball! 😮`);
+    await sleep(800);
+    await foeTurn();
+    state.busy=false; disableActions(false);
+  }
+}
+
+async function winBattle(){
+  $('foe-mon').classList.add('faint');
+  log(`<b>${state.foe.name}</b> è stato sconfitto! 🌟`);
+  await sleep(900);
+  // level up chance
+  if(Math.random()<0.7){
+    state.player.level++;
+    const gain=3;
+    state.player.maxhp+=gain; state.player.hp=Math.min(state.player.maxhp,state.player.hp+gain);
+    toast(`${state.player.name} sale al livello ${state.player.level}! ⬆️`);
+  }
+  await sleep(600);
+  explore();
+  state.busy=false;
+}
+
+async function loseBattle(){
+  $('self-mon').classList.add('faint');
+  log(`${state.player.name} non può più combattere…`);
+  await sleep(1000);
+  // full heal and continue — kid-friendly, no game over
+  state.player.hp=state.player.maxhp;
+  $('self-mon').classList.remove('faint');
+  toast('Ti sei riposato al Centro Pokémon. ❤️‍🩹');
+  await sleep(400);
+  explore();
+  state.busy=false; disableActions(false);
+}
+
+function disableActions(v){
+  $('actions').querySelectorAll('button').forEach(b=>b.disabled=v);
+}
+
+// ============================================================
+//  Pokédex & Team screens
+// ============================================================
+function showDex(){
+  const g=$('dexgrid'); g.innerHTML='';
+  let count=0;
+  DEX.forEach(p=>{
+    const got=!!state.caught[p.id]; if(got) count++;
+    const c=document.createElement('div');
+    c.className='dexcell'+(got?'':' empty');
+    c.innerHTML = got
+      ? `<div class="emoji-big">${p.emoji}</div><div class="name">${p.name}</div>
+         <span class="type-badge ${typeClass(p.type)}" style="font-size:10px">${effIcon(p.type)} ${p.type}</span>`
+      : `<div class="emoji-big">❔</div><div class="muted">#${String(p.id).padStart(2,'0')}</div>`;
+    g.appendChild(c);
+  });
+  $('dex-count').textContent=`Catturati: ${count} / ${DEX.length}`;
+  show('dex');
+}
+
+function showTeam(){
+  const g=$('dexgrid'); g.innerHTML='';
+  if(state.team.length===0){
+    g.innerHTML='<p class="muted" style="grid-column:1/-1;text-align:center">Nessun Pokémon ancora. Vai a esplorare! 🌿</p>';
+  }
+  state.team.forEach(m=>{
+    const c=document.createElement('div'); c.className='dexcell';
+    c.innerHTML=`<div class="emoji-big">${m.emoji}</div><div class="name">${m.name}</div>
+      <div class="muted" style="font-size:12px">Lv ${m.level}</div>
+      <span class="type-badge ${typeClass(m.type)}" style="font-size:10px">${effIcon(m.type)} ${m.type}</span>`;
+    if(m===state.player){ c.innerHTML+='<div class="tag">★ in squadra</div>'; }
+    c.onclick=()=>{ state.player=m; toast(`${m.name} è ora il tuo compagno!`); showTeam(); };
+    g.appendChild(c);
+  });
+  $('dex-count').textContent=`Squadra: ${state.team.length} / 6 — tocca per scegliere il compagno`;
+  show('dex');
+}
+
+// ============================================================
+//  Boot
+// ============================================================
+show('start');
+</script>
+</body>
+</html>
