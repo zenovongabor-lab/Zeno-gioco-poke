@@ -2,7 +2,7 @@
 
 A two-player Pokémon **draft duel** game, playable right in the browser.
 Crack open mystery Poké Balls, draft a team of six, then either compare team
-power or **fight it out** in a retro Game-Boy-style battle.
+power or **fight it out** in a HeartGold/SoulSilver-style battle.
 
 The whole game is a single self-contained file: [`index.html`](./index.html).
 

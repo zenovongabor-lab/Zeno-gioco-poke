@@ -273,55 +273,72 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 .shake-x{animation:shakex .35s ease}
 @keyframes shakex{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
 
-/* ---------- classic (OG) battle skin ---------- */
-.gb{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-.gb-field{position:relative;aspect-ratio:1/0.82;border-radius:10px;overflow:hidden;border:3px solid #14131f;
-  background:linear-gradient(#bfe9ff 0 54%, #6cc05a 54% 56.5%, #cdeecb 56.5% 100%);
-  box-shadow:inset 0 0 0 2px #f8f8f0}
+/* ---------- HeartGold / SoulSilver (DS) battle skin ---------- */
+.gb{max-width:540px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.gb-field{position:relative;aspect-ratio:1/0.8;border-radius:12px;overflow:hidden;border:3px solid #2a2f45;
+  background:linear-gradient(#8fe0f2 0%, #c2f0ee 32%, #dcf6e7 40%,
+                             #9fdd82 40%, #85cd6a 64%, #7bc55e 100%);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.5), 0 6px 16px rgba(0,0,0,.35)}
+.gb-field::after{content:"";position:absolute;left:0;right:0;top:40%;bottom:0;pointer-events:none;
+  background:repeating-linear-gradient(180deg, rgba(255,255,255,.07) 0 5px, transparent 5px 15px)}
 .gb-field img{image-rendering:pixelated}
-.plat{position:absolute;width:44%;height:10%;border-radius:50%;background:rgba(70,140,60,.30)}
-.plat.foe{top:31%;right:3%}
-.plat.you{bottom:10%;left:1%}
+.plat{position:absolute;width:47%;height:13%;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 32%, #dccb92 0%, #bda264 55%, #927740 100%);
+  box-shadow:0 4px 7px rgba(0,0,0,.18)}
+.plat.foe{top:29%;right:2%}
+.plat.you{bottom:7%;left:0}
 .bslot{position:absolute}
-.foeHp{top:10px;left:10px;width:53%}
-.youHp{bottom:10px;right:10px;width:53%}
-.foeMon{top:8%;right:7%;width:33%;max-width:120px}
-.youMon{bottom:12%;left:5%;width:41%;max-width:152px}
+.foeHp{top:12px;left:10px;width:57%}
+.youHp{bottom:12px;right:10px;width:57%}
+.foeMon{top:6%;right:8%;width:34%;max-width:130px}
+.youMon{bottom:13%;left:4%;width:45%;max-width:162px}
 .foeMon .bsprite,.youMon .bsprite{width:100%;aspect-ratio:1;display:grid;place-items:center}
-.foeMon img,.youMon img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 5px rgba(0,0,0,.4));transition:opacity .4s,transform .4s}
+.foeMon img,.youMon img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 5px 5px rgba(0,0,0,.35));transition:opacity .4s,transform .4s}
 .bsprite.fainted img{opacity:.1;transform:translateY(16px) scale(.8)}
-.gb-box{background:#f8f8f0;border:3px solid #14131f;border-radius:9px;box-shadow:0 3px 0 #14131f}
-.hpbox{padding:7px 9px}
+
+/* angled silver HP capsule: skewed plate behind straight text */
+.gb-box{position:relative}
+.hpbox{position:relative;padding:8px 13px 9px}
+.hpbox::before{content:"";position:absolute;inset:0;z-index:0;transform:skewX(-11deg);border-radius:8px;
+  background:linear-gradient(#ffffff, #e2e7f0 58%, #c4ccda);
+  border:2px solid #454b66;box-shadow:0 3px 0 rgba(0,0,0,.16), inset 0 1px 0 #fff}
+.foeHp .hpbox::before{transform:skewX(11deg)}
+.hpbox > *{position:relative;z-index:1}
 .hb-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
-.hb-name{font-family:var(--pixel);font-size:9px;color:#14131f;letter-spacing:.5px;line-height:1.2}
-.hb-lv{font-family:var(--pixel);font-size:8px;color:#14131f}
-.hb-bar{display:flex;align-items:center;gap:5px;margin-top:7px}
-.hb-hp{font-family:var(--pixel);font-size:7px;color:#f8d030;background:#14131f;padding:2px 3px;border-radius:2px}
-.hpbar{flex:1;height:9px;border-radius:6px;background:#585868;border:2px solid #14131f;overflow:hidden;padding:0}
-.hpfill{height:100%;width:100%;border-radius:0;background:#68d048;transition:width .5s ease,background .3s}
-.hpfill.mid{background:#f8d030}
-.hpfill.low{background:#f85838}
-.hb-num{font-family:var(--pixel);font-size:8px;color:#14131f;text-align:right;margin-top:5px}
-.hb-dots{display:flex;gap:3px;justify-content:flex-end;margin-top:6px}
-.bdot{width:8px;height:8px;border-radius:50%;background:#68d048;border:1.5px solid #14131f;box-shadow:none}
-.bdot.out{background:#c8c8c8}
-.gb-text{font-family:var(--pixel);font-size:10px;line-height:1.9;color:#14131f;background:#f8f8f0;
-  border:3px solid #14131f;border-radius:9px;box-shadow:0 3px 0 #14131f;padding:12px 13px;min-height:56px}
-.gb-text b{color:#14131f}
-.gb-text .eff{color:#c02020}
-.gb-text .crit{color:#d06010}
+.hb-name{font-family:var(--display);font-weight:700;font-size:14px;color:#242a40;letter-spacing:.3px;line-height:1.1;text-transform:uppercase}
+.hb-lv{font-family:var(--display);font-weight:700;font-size:12px;color:#242a40;white-space:nowrap}
+.hb-bar{display:flex;align-items:center;gap:6px;margin-top:6px}
+.hb-hp{font-family:var(--display);font-weight:700;font-size:10px;color:#fff;background:#f0a11e;
+  padding:1px 6px 2px;border-radius:5px;box-shadow:0 1px 0 rgba(0,0,0,.25);letter-spacing:.5px}
+.hpbar{flex:1;height:8px;border-radius:6px;background:#5a6072;border:1.5px solid #2a2f45;overflow:hidden;padding:0}
+.hpfill{height:100%;width:100%;border-radius:5px;background:linear-gradient(#8ef06a,#4fc93a);transition:width .5s ease,background .3s}
+.hpfill.mid{background:linear-gradient(#ffe36b,#f2c21c)}
+.hpfill.low{background:linear-gradient(#ff8f7a,#f2482f)}
+.hb-num{font-family:var(--display);font-weight:700;font-size:11px;color:#242a40;text-align:right;margin-top:4px}
+.hb-exp{height:4px;border-radius:3px;background:#2b3352;overflow:hidden;margin-top:5px}
+.hb-exp i{display:block;height:100%;width:0;background:linear-gradient(#7ad2ff,#2f8fe0);transition:width .6s ease}
+.hb-dots{display:flex;gap:4px;justify-content:flex-end;margin-top:6px}
+.bdot{width:9px;height:9px;border-radius:50%;border:1px solid #2a2f45;box-shadow:none;
+  background:linear-gradient(180deg,#ec4b4b 0 45%, #2a2f45 45% 55%, #f6f6f8 55% 100%)}
+.bdot.out{background:#b9bdca;border-color:#8a8f9e}
+.gb-text{font-family:var(--display);font-weight:600;font-size:14.5px;line-height:1.5;color:#1b2233;
+  background:#fbfdff;border:3px solid #2f6fb0;border-radius:12px;
+  box-shadow:inset 0 0 0 2px #d3e6f8, 0 3px 0 rgba(0,0,0,.12);padding:12px 14px;min-height:56px}
+.gb-text b{color:#1b2233;font-weight:700}
+.gb-text .eff{color:#c02020;font-weight:700}
+.gb-text .crit{color:#d06010;font-weight:700}
 .gb-text .muted{color:#5b6472}
-.gb-menu{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.mvb{font-family:var(--pixel);font-size:9px;line-height:1.35;background:#f8f8f0;color:#14131f;
-  border:3px solid #14131f;border-radius:8px;box-shadow:0 3px 0 #14131f;
-  padding:11px 10px 11px 20px;text-align:left;position:relative;cursor:pointer}
-.mvb::before{content:"▶";position:absolute;left:7px;top:11px;color:#e03030;opacity:0}
-.mvb:hover::before,.mvb:focus::before{opacity:1}
-.mvb:active{transform:translateY(2px);box-shadow:0 1px 0 #14131f}
-.mvb:disabled{opacity:.55;cursor:not-allowed}
-.mv-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle;border:1px solid #14131f}
-.mv-sub{display:block;font-size:7px;color:#707888;margin-top:6px;letter-spacing:.3px}
-.bhead h2{font-family:var(--pixel);font-size:14px}
+.gb-menu{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.mvb{font-family:var(--display);font-weight:700;font-size:13.5px;line-height:1.15;color:#fff;
+  background:#7c88a0;border:2px solid rgba(0,0,0,.32);border-radius:12px;box-shadow:0 3px 0 rgba(0,0,0,.3);
+  padding:10px 12px 11px 26px;text-align:left;position:relative;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.mvb::before{content:"▶";position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#fff;opacity:0}
+.mvb:hover::before,.mvb:focus::before{opacity:.9}
+.mvb:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.mvb:disabled{opacity:.6;cursor:not-allowed}
+.mv-dot{display:none}
+.mv-sub{display:block;font-size:9.5px;font-weight:600;color:rgba(255,255,255,.9);margin-top:5px;letter-spacing:.3px}
+.bhead h2{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.5px}
 
 @media(prefers-reduced-motion:reduce){
   *{animation-duration:.001ms !important;animation-iteration-count:1 !important}
@@ -698,7 +715,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v8 — AI levels + no doubles</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v9 — HGSS battle look</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -1233,11 +1250,15 @@ function paintPanel(side){
   const dots=bt.teams[side].map(x=>`<span class="bdot ${x.fainted?"out":""}"></span>`).join("");
   let nm=m.display; if(nm.length>13) nm=nm.slice(0,12)+"…";
   const shinyTag=m.shiny?' <span style="color:#d8a828">✦</span>':"";
+  // player's EXP bar fills as the rival's team is knocked out (HGSS flavour)
+  const foeTeam=bt.teams[1], expPct=Math.round(foeTeam.filter(x=>x.fainted).length/foeTeam.length*100);
   hpHost.innerHTML=`
     <div class="gb-box hpbox">
       <div class="hb-top"><span class="hb-name">${escapeHtml(nm)}${shinyTag}</span><span class="hb-lv">Lv${LV}</span></div>
       <div class="hb-bar"><span class="hb-hp">HP</span><div class="hpbar"><div class="hpfill" id="hp${side}"></div></div></div>
-      ${side===0?`<div class="hb-num" id="hpn0"></div>`:`<span id="hpn1" style="display:none"></span>`}
+      ${side===0
+        ? `<div class="hb-num" id="hpn0"></div><div class="hb-exp"><i id="exp0" style="width:${expPct}%"></i></div>`
+        : `<span id="hpn1" style="display:none"></span>`}
       <div class="hb-dots">${dots}</div>
     </div>`;
   setHp(side,false);
@@ -1258,8 +1279,8 @@ function renderMoves(){
   const disabled = bt.busy||bt.over||bt.auto||bt.ai[0];
   host.innerHTML=me.moves.map((mv,i)=>{
     const col=TYPE_COLORS[mv.type]||"#777";
-    return `<button class="mvb" data-i="${i}" ${disabled?"disabled":""}>
-       <span class="mv-dot" style="background:${col}"></span>${mv.name}
+    return `<button class="mvb" data-i="${i}" ${disabled?"disabled":""} style="background:linear-gradient(${col},${shade(col)});border-color:${shade(col)}">
+       ${mv.name}
        <span class="mv-sub">${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}</span>
      </button>`;
   }).join("");
