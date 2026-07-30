@@ -478,8 +478,10 @@ const PH="data:image/svg+xml;utf8,"+encodeURIComponent(
   "<circle cx='50' cy='50' r='13' fill='#fff' stroke='#17162f' stroke-width='6'/></svg>");
 function setSprite(img,urls){
   let i=0;
-  img.onerror=()=>{ i++; if(i<urls.length){ img.src=urls[i]; } else { img.onerror=null; img.src=PH; } };
-  img.src=urls[0]||PH;
+  // smooth-render the full artwork; keep pixel sprites crisp (battle uses pixelated)
+  const apply=()=>{ img.style.imageRendering = /official-artwork|\/home\//.test(img.src||"")?"auto":""; };
+  img.onerror=()=>{ i++; if(i<urls.length){ img.src=urls[i]; apply(); } else { img.onerror=null; img.src=PH; } };
+  img.src=urls[0]||PH; apply();
 }
 function hydrateSprites(root){
   root.querySelectorAll("img[data-id]").forEach(img=>{
@@ -1223,11 +1225,19 @@ function renderBattle(){
     else if(!bt.busy&&!bt.over) setPrompt();
   };
 }
-// classic front/back pixel sprites (back = your side), with fallbacks
+// classic front/back pixel sprites (back = your side). Many newer Pokémon /
+// megas / Gigantamax have no pixel sprite, so fall back to the full artwork —
+// which exists for everyone — before ever showing the Poké Ball placeholder.
 function battleSprite(m, back){
   const s=m.shiny?"/shiny":"";
-  if(back) return [`${SPR}/back${s}/${m.id}.png`, `${SPR}/back/${m.id}.png`, `${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, PH];
-  return [`${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, PH];
+  const art=[
+    `${SPR}/other/official-artwork${s}/${m.id}.png`,
+    `${SPR}/other/home${s}/${m.id}.png`,
+    `${SPR}/other/official-artwork/${m.id}.png`,
+    PH,
+  ];
+  if(back) return [`${SPR}/back${s}/${m.id}.png`, `${SPR}/back/${m.id}.png`, `${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, ...art];
+  return [`${SPR}${s}/${m.id}.png`, `${SPR}/${m.id}.png`, ...art];
 }
 function setPrompt(){
   if(!S.bt||S.bt.over) return;
