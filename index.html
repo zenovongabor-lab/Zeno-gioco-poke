@@ -323,6 +323,31 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 .mv-sub{display:block;font-size:7px;color:#707888;margin-top:6px;letter-spacing:.3px}
 .bhead h2{font-family:var(--pixel);font-size:14px}
 
+/* ---------- item bag ---------- */
+.ibwrap{display:flex;flex-direction:column;gap:12px}
+.ihint{color:var(--muted);font-size:13px;margin:0}
+.igrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+@media(max-width:460px){.igrid{grid-template-columns:repeat(2,1fr)}}
+.icard{background:var(--slot);border:1.5px solid var(--line);border-radius:14px;padding:8px 8px 6px;text-align:center;cursor:pointer;transition:.12s}
+.icard.on{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(255,203,5,.15)}
+.ispr{aspect-ratio:1.35;display:grid;place-items:center}
+.ispr img{width:76px;height:76px;object-fit:contain}
+.iname{font-family:var(--display);font-weight:600;font-size:12.5px;line-height:1.15;min-height:30px;display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.iheld{font-size:11.5px;margin-top:5px;min-height:17px;color:var(--good);cursor:pointer}
+.iheld .muted{color:var(--muted);cursor:default}
+.ibadge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;color:#fff}
+.ibadge.mega{background:linear-gradient(90deg,#7d3cc9,#c94fd8)}
+.ibadge.gmax{background:linear-gradient(90deg,#e0245e,#ff6a3d)}
+.ibaglbl{font-family:var(--display);font-weight:600;font-size:13px;color:var(--muted)}
+.ibagrow{display:flex;flex-wrap:wrap;gap:8px}
+.ibag{flex:1 1 88px;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--slot);border:1.5px solid var(--line);border-radius:12px;padding:9px 6px;color:var(--white);cursor:pointer}
+.ibag .iemj{font-size:20px;line-height:1}
+.ibag .inm{font-family:var(--display);font-size:11px;font-weight:600;text-align:center}
+.ibag .ict{font-family:var(--mono);font-size:10px;color:var(--yellow)}
+.ibag.gone{opacity:.32;cursor:not-allowed}
+.ibag:not(.gone):active{transform:translateY(2px)}
+.idesc{min-height:34px;font-size:12.5px;color:var(--muted);background:rgba(0,0,0,.22);border-radius:10px;padding:8px 11px;line-height:1.4}
+
 @media(prefers-reduced-motion:reduce){
   *{animation-duration:.001ms !important;animation-iteration-count:1 !important}
   .ball{animation:none}
@@ -598,6 +623,7 @@ async function generateTurnMons(){
 function render(){
   if(S.screen==="setup")   return renderSetup();
   if(S.screen==="game")    return renderGame();
+  if(S.screen==="itembag") return renderItemBag();
   if(S.screen==="battle")  return S.bt?renderBattle():renderSetup();
   if(S.screen==="results") return renderResults();
 }
@@ -674,7 +700,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v7 — battle mode</b> · draft six, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v8 — items, switching &amp; true stats</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -966,7 +992,7 @@ function endTurn(){
   if(S.cur===0){ S.cur=1; setTimeout(beginTurn,450); return; }
   // player 2 just finished -> next round
   S.cur=0;
-  if(S.round>=6){ setTimeout(S.battleMode?startBattle:showResults,500); return; }
+  if(S.round>=6){ setTimeout(S.battleMode?startItemPhase:showResults,500); return; }
   S.round++;
   setTimeout(beginTurn,450);
 }
@@ -1013,7 +1039,7 @@ function renderResults(){
     <div class="foot">Tip: a well-timed “No Go” can swing the whole game.</div>
   `;
   hydrateSprites($("app"));
-  $("tobattle").onclick=startBattle;
+  $("tobattle").onclick=startItemPhase;
   $("again").onclick=()=>{ // same settings, fresh draft
     S.players=[
       {name:S.p1name, ai:false,  team:[], noGoRoundLeft:0},
@@ -1063,51 +1089,81 @@ const CHART={
 };
 function typeEff(mt,defs){ let m=1; for(const d of defs){ const v=CHART[mt]&&CHART[mt][d]; m*=(v===undefined?1:v); } return m; }
 
-// One physical + one special signature move per type (real moves, correct types/powers).
+// Rich, varied move pools — several real moves per type across power tiers, each
+// with its true damage class. Different species of the same type end up with
+// different-feeling sets (see assignMoves, which seeds off the species id).
 const MOVES={
- normal:{physical:{n:"Body Slam",p:85},special:{n:"Hyper Voice",p:90}},
- fire:{physical:{n:"Flare Blitz",p:120},special:{n:"Flamethrower",p:90}},
- water:{physical:{n:"Waterfall",p:80},special:{n:"Surf",p:90}},
- electric:{physical:{n:"Wild Charge",p:90},special:{n:"Thunderbolt",p:90}},
- grass:{physical:{n:"Power Whip",p:120},special:{n:"Energy Ball",p:90}},
- ice:{physical:{n:"Ice Punch",p:75},special:{n:"Ice Beam",p:90}},
- fighting:{physical:{n:"Close Combat",p:120},special:{n:"Aura Sphere",p:80}},
- poison:{physical:{n:"Poison Jab",p:80},special:{n:"Sludge Bomb",p:90}},
- ground:{physical:{n:"Earthquake",p:100},special:{n:"Earth Power",p:90}},
- flying:{physical:{n:"Brave Bird",p:120},special:{n:"Air Slash",p:75}},
- psychic:{physical:{n:"Zen Headbutt",p:80},special:{n:"Psychic",p:90}},
- bug:{physical:{n:"X-Scissor",p:80},special:{n:"Bug Buzz",p:90}},
- rock:{physical:{n:"Rock Slide",p:75},special:{n:"Power Gem",p:80}},
- ghost:{physical:{n:"Phantom Force",p:90},special:{n:"Shadow Ball",p:80}},
- dragon:{physical:{n:"Dragon Claw",p:80},special:{n:"Dragon Pulse",p:85}},
- dark:{physical:{n:"Crunch",p:80},special:{n:"Dark Pulse",p:80}},
- steel:{physical:{n:"Iron Head",p:80},special:{n:"Flash Cannon",p:80}},
- fairy:{physical:{n:"Play Rough",p:90},special:{n:"Moonblast",p:95}},
+ normal:[{n:"Body Slam",p:85,c:"physical"},{n:"Double-Edge",p:120,c:"physical"},{n:"Extreme Speed",p:80,c:"physical",pri:2},{n:"Hyper Voice",p:90,c:"special"},{n:"Tri Attack",p:80,c:"special"},{n:"Boomburst",p:140,c:"special"}],
+ fire:[{n:"Fire Punch",p:75,c:"physical"},{n:"Flare Blitz",p:120,c:"physical"},{n:"Flamethrower",p:90,c:"special"},{n:"Fire Blast",p:110,c:"special"},{n:"Overheat",p:130,c:"special"},{n:"Lava Plume",p:80,c:"special"}],
+ water:[{n:"Waterfall",p:80,c:"physical"},{n:"Aqua Tail",p:90,c:"physical"},{n:"Liquidation",p:85,c:"physical"},{n:"Surf",p:90,c:"special"},{n:"Hydro Pump",p:110,c:"special"},{n:"Scald",p:80,c:"special"}],
+ electric:[{n:"Wild Charge",p:90,c:"physical"},{n:"Thunder Punch",p:75,c:"physical"},{n:"Thunderbolt",p:90,c:"special"},{n:"Thunder",p:110,c:"special"},{n:"Volt Switch",p:70,c:"special"}],
+ grass:[{n:"Power Whip",p:120,c:"physical"},{n:"Seed Bomb",p:80,c:"physical"},{n:"Leaf Blade",p:90,c:"physical"},{n:"Energy Ball",p:90,c:"special"},{n:"Giga Drain",p:75,c:"special"},{n:"Leaf Storm",p:130,c:"special"}],
+ ice:[{n:"Ice Punch",p:75,c:"physical"},{n:"Icicle Crash",p:85,c:"physical"},{n:"Ice Beam",p:90,c:"special"},{n:"Blizzard",p:110,c:"special"},{n:"Freeze-Dry",p:70,c:"special"}],
+ fighting:[{n:"Close Combat",p:120,c:"physical"},{n:"Drain Punch",p:75,c:"physical"},{n:"Mach Punch",p:40,c:"physical",pri:1},{n:"Aura Sphere",p:80,c:"special"},{n:"Focus Blast",p:120,c:"special"}],
+ poison:[{n:"Poison Jab",p:80,c:"physical"},{n:"Gunk Shot",p:120,c:"physical"},{n:"Sludge Bomb",p:90,c:"special"},{n:"Sludge Wave",p:95,c:"special"}],
+ ground:[{n:"Earthquake",p:100,c:"physical"},{n:"High Horsepower",p:95,c:"physical"},{n:"Bonemerang",p:100,c:"physical"},{n:"Earth Power",p:90,c:"special"},{n:"Scorching Sands",p:70,c:"special"}],
+ flying:[{n:"Brave Bird",p:120,c:"physical"},{n:"Acrobatics",p:85,c:"physical"},{n:"Dual Wingbeat",p:80,c:"physical"},{n:"Air Slash",p:75,c:"special"},{n:"Hurricane",p:110,c:"special"}],
+ psychic:[{n:"Zen Headbutt",p:80,c:"physical"},{n:"Psychic Fangs",p:85,c:"physical"},{n:"Psychic",p:90,c:"special"},{n:"Psyshock",p:80,c:"special"},{n:"Expanding Force",p:80,c:"special"}],
+ bug:[{n:"X-Scissor",p:80,c:"physical"},{n:"Leech Life",p:80,c:"physical"},{n:"First Impression",p:90,c:"physical",pri:2},{n:"Megahorn",p:120,c:"physical"},{n:"Bug Buzz",p:90,c:"special"}],
+ rock:[{n:"Rock Slide",p:75,c:"physical"},{n:"Stone Edge",p:100,c:"physical"},{n:"Head Smash",p:150,c:"physical"},{n:"Power Gem",p:80,c:"special"},{n:"Meteor Beam",p:120,c:"special"}],
+ ghost:[{n:"Phantom Force",p:90,c:"physical"},{n:"Poltergeist",p:110,c:"physical"},{n:"Shadow Claw",p:70,c:"physical"},{n:"Shadow Ball",p:80,c:"special"},{n:"Hex",p:65,c:"special"}],
+ dragon:[{n:"Dragon Claw",p:80,c:"physical"},{n:"Outrage",p:120,c:"physical"},{n:"Scale Shot",p:75,c:"physical"},{n:"Dragon Pulse",p:85,c:"special"},{n:"Draco Meteor",p:130,c:"special"}],
+ dark:[{n:"Crunch",p:80,c:"physical"},{n:"Knock Off",p:65,c:"physical"},{n:"Sucker Punch",p:70,c:"physical",pri:1},{n:"Foul Play",p:95,c:"physical"},{n:"Dark Pulse",p:80,c:"special"}],
+ steel:[{n:"Iron Head",p:80,c:"physical"},{n:"Meteor Mash",p:90,c:"physical"},{n:"Bullet Punch",p:40,c:"physical",pri:1},{n:"Flash Cannon",p:80,c:"special"},{n:"Steel Beam",p:140,c:"special"}],
+ fairy:[{n:"Play Rough",p:90,c:"physical"},{n:"Spirit Break",p:75,c:"physical"},{n:"Moonblast",p:95,c:"special"},{n:"Dazzling Gleam",p:80,c:"special"}],
 };
-const HP_MUL=2.4, DMG_SCALE=0.8, LV=50;
+// Iconic species get their real signature move.
+const SIGNATURE={
+ charizard:{n:"Blast Burn",p:150,type:"fire",c:"special"}, blastoise:{n:"Hydro Cannon",p:150,type:"water",c:"special"},
+ venusaur:{n:"Frenzy Plant",p:150,type:"grass",c:"special"}, pikachu:{n:"Volt Tackle",p:120,type:"electric",c:"physical"},
+ raichu:{n:"Volt Tackle",p:120,type:"electric",c:"physical"}, gengar:{n:"Shadow Ball",p:80,type:"ghost",c:"special"},
+ alakazam:{n:"Psystrike",p:100,type:"psychic",c:"special"}, machamp:{n:"Dynamic Punch",p:100,type:"fighting",c:"physical"},
+ snorlax:{n:"Body Slam",p:85,type:"normal",c:"physical"}, gyarados:{n:"Waterfall",p:80,type:"water",c:"physical"},
+ dragonite:{n:"Outrage",p:120,type:"dragon",c:"physical"}, mewtwo:{n:"Psystrike",p:100,type:"psychic",c:"special"},
+ mew:{n:"Psychic",p:90,type:"psychic",c:"special"}, tyranitar:{n:"Stone Edge",p:100,type:"rock",c:"physical"},
+ blaziken:{n:"Blaze Kick",p:85,type:"fire",c:"physical"}, swampert:{n:"Earthquake",p:100,type:"ground",c:"physical"},
+ sceptile:{n:"Leaf Blade",p:90,type:"grass",c:"physical"}, gardevoir:{n:"Moonblast",p:95,type:"fairy",c:"special"},
+ metagross:{n:"Meteor Mash",p:90,type:"steel",c:"physical"}, rayquaza:{n:"Dragon Ascent",p:120,type:"flying",c:"physical"},
+ garchomp:{n:"Dragon Rush",p:100,type:"dragon",c:"physical"}, lucario:{n:"Aura Sphere",p:80,type:"fighting",c:"special"},
+ greninja:{n:"Water Shuriken",p:60,type:"water",c:"special",pri:1}, infernape:{n:"Close Combat",p:120,type:"fighting",c:"physical"},
+ typhlosion:{n:"Eruption",p:150,type:"fire",c:"special"}, feraligatr:{n:"Crunch",p:80,type:"dark",c:"physical"},
+ arcanine:{n:"Flare Blitz",p:120,type:"fire",c:"physical"}, lapras:{n:"Freeze-Dry",p:70,type:"ice",c:"special"},
+ lugia:{n:"Aeroblast",p:100,type:"flying",c:"special"}, "ho-oh":{n:"Sacred Fire",p:100,type:"fire",c:"physical"},
+ kyogre:{n:"Origin Pulse",p:110,type:"water",c:"special"}, groudon:{n:"Precipice Blades",p:120,type:"ground",c:"physical"},
+ zacian:{n:"Behemoth Blade",p:100,type:"steel",c:"physical"}, zamazenta:{n:"Behemoth Bash",p:100,type:"steel",c:"physical"},
+ eternatus:{n:"Dynamax Cannon",p:100,type:"dragon",c:"special"}, aegislash:{n:"Shadow Sneak",p:40,type:"ghost",c:"physical",pri:1},
+};
+const DMG_SCALE=0.6, LV=50, IV=31;
 
+// Real Lv.50 stat formulas (31 IVs, 0 EVs, neutral nature) — the same numbers
+// a standard Pokémon damage calculator shows at level 50.
+const l50hp=b=>Math.floor((2*b+IV)*LV/100)+LV+10;
+const l50st=b=>Math.floor((2*b+IV)*LV/100)+5;
 function statSpread(mon){
-  if(mon.stats) return mon.stats;
-  const e=Math.round(mon.bst/6); return {hp:e,atk:e,def:e,spa:e,spd:e,spe:e};
+  if(mon.stats && mon.stats.hp) return mon.stats;
+  const e=Math.round((mon.bst||360)/6); return {hp:e,atk:e,def:e,spa:e,spd:e,spe:e};
 }
 function battleStats(mon){
   const s=statSpread(mon);
-  return {
-    maxHp:Math.floor((Math.floor(2*s.hp*LV/100)+LV+10)*HP_MUL),
-    atk:Math.floor(2*s.atk*LV/100)+5, def:Math.floor(2*s.def*LV/100)+5,
-    spa:Math.floor(2*s.spa*LV/100)+5, spd:Math.floor(2*s.spd*LV/100)+5,
-    spe:Math.floor(2*s.spe*LV/100)+5,
-  };
+  return {maxHp:l50hp(s.hp),atk:l50st(s.atk),def:l50st(s.def),spa:l50st(s.spa),spd:l50st(s.spd),spe:l50st(s.spe)};
 }
+function scaleStats(s,f){const o={};for(const k in s)o[k]=Math.max(1,Math.round(s[k]*f));return o;}
+// deterministic per-species PRNG, so a species always draws the same varied moveset
+function seeded(id){let s=((id||1)*2654435761)%2147483647; if(s<=0)s+=2147483646;
+  return ()=>((s=s*16807%2147483647)-1)/2147483646;}
 function assignMoves(mon){
-  const s=statSpread(mon), cls=s.atk>=s.spa?"physical":"special";
-  const chosen=[], used=new Set();
-  const add=(t,c)=>{ const m=MOVES[t]&&(MOVES[t][c]||MOVES[t].physical||MOVES[t].special);
-    if(m&&!used.has(m.n)){ chosen.push({name:m.n,type:t,power:m.p,cls:c}); used.add(m.n); } };
-  mon.types.forEach(t=>add(t,cls));
-  if(mon.types.length===1) add(mon.types[0], cls==="physical"?"special":"physical");
-  const cover=["ice","ground","fighting","fairy","rock","electric","fire","dark"];
-  for(const t of [...cover,...Object.keys(MOVES)]){ if(chosen.length>=4) break; if(!mon.types.includes(t)) add(t,cls); }
+  const s=statSpread(mon), physBias=(s.atk>=s.spa);
+  const rng=seeded(mon.id||101), chosen=[], used=new Set();
+  const push=m=>{ if(m&&!used.has(m.n)){chosen.push({name:m.n,type:m.type,power:m.p,cls:m.c,pri:m.pri||0}); used.add(m.n);} };
+  const pref=pool=>{ const a=pool.filter(m=>m.c===(physBias?"physical":"special")); return a.length?a:pool; };
+  const pick=(pool,type)=>{ const a=pref(pool); const m=a[Math.floor(rng()*a.length)]; return {...m,type}; };
+  const sp=(mon.name||"").split("-")[0];
+  if(SIGNATURE[sp]) push(SIGNATURE[sp]);
+  for(const t of mon.types){ if(MOVES[t]) push(pick(MOVES[t],t)); }
+  const others=Object.keys(MOVES).filter(t=>!mon.types.includes(t));
+  for(let i=others.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[others[i],others[j]]=[others[j],others[i]];}
+  for(const t of others){ if(chosen.length>=4)break; push(pick(MOVES[t],t)); }
+  if(!chosen.length) push({n:"Struggle",p:50,c:"physical",type:"normal"});
   return chosen.slice(0,4);
 }
 function calcDamage(atk,def,mv){
@@ -1125,19 +1181,156 @@ function bestMove(a,d){ let best=a.moves[0],bd=-1;
     if(est>bd){bd=est;best=mv;} }
   return best;
 }
+/* ---------- held items ---------- */
+const ITEMS={
+ sash:  {name:"Focus Sash",   emoji:"🎗️", desc:"If at full HP, survives a would-be KO with 1 HP. One use per battle."},
+ sitrus:{name:"Sitrus Berry", emoji:"🍒", desc:"The instant HP falls to 50% or less, restores ¼ of max HP. One use."},
+ lefto: {name:"Leftovers",    emoji:"🍖", desc:"Recovers 1/6 of max HP at the end of every turn."},
+ bulb:  {name:"Absorb Sphere",emoji:"🔮", desc:"+20% Attack & Sp. Atk, but max HP is lowered by 10%."},
+ claw:  {name:"Quick Claw",   emoji:"⚡", desc:"20% chance to move first each turn, even when slower. Never runs out."},
+ mega:  {name:"Mega Stone",   emoji:"🔺", desc:"Mega-evolves the holder. Only ONE Pokémon may hold it."},
+ gmax:  {name:"G-Max Band",   emoji:"🟥", desc:"Gigantamaxes the holder (+50% HP). Only ONE Pokémon may hold it."},
+};
+
 function makeBattler(mon){
-  const b=battleStats(mon);
-  return {mon, b, moves:assignMoves(mon), hp:b.maxHp, max:b.maxHp, fainted:false};
+  const item=mon.item||null;
+  const isMega=!!(mon.mega&&item==="mega");
+  const isGmax=!!(mon.gmax&&item==="gmax");
+  // A drafted Mega / G-Max that is NOT holding its stone reverts to its base form.
+  let src=mon;
+  if((mon.mega||mon.gmax)&&!isMega&&!isGmax){
+    src={id:mon.id,name:mon.name,types:mon.types,bst:mon.bst,
+         stats:mon.baseStats||scaleStats(statSpread(mon),0.85)};
+  }
+  let b=battleStats(src);
+  if(item==="bulb") b={...b,atk:Math.round(b.atk*1.2),spa:Math.round(b.spa*1.2),maxHp:Math.max(1,Math.round(b.maxHp*0.9))};
+  if(isGmax)        b={...b,maxHp:Math.round(b.maxHp*1.5)};
+  return {mon,b,item,isMega,isGmax,sashUsed:false,sitrusUsed:false,
+          moves:assignMoves(mon),hp:b.maxHp,max:b.maxHp,fainted:false};
 }
 
-/* ---------- battle flow ---------- */
-function startBattle(){
+/* ============================================================
+   ITEM PHASE — assign held items before the battle
+   ============================================================ */
+const teamHasMega=t=>t.some(m=>m.mega);
+const teamHasGmax=t=>t.some(m=>m.gmax);
+function freshBag(team){
+  return {sash:1,sitrus:1,lefto:1,bulb:1,claw:1,
+          mega:teamHasMega(team)?1:0, gmax:teamHasGmax(team)?1:0};
+}
+function startItemPhase(){
+  S.players.forEach(p=>p.team.forEach(m=>{m.item=null;}));
+  S.bags=[freshBag(S.players[0].team), freshBag(S.players[1].team)];
+  if(S.players[1].ai) autoAssignItems(1);   // rival auto-assigns; humans use the UI
+  S.itemSide=0; S.pickMon=null; S.screen="itembag"; render();
+}
+function autoAssignItems(side){
+  const team=S.players[side].team, bag=S.bags[side];
+  const free=()=>team.filter(m=>!m.item);
+  const give=(m,k)=>{ if(m&&(bag[k]||0)>0&&!m.item){ m.item=k; bag[k]--; } };
+  const st=m=>m.stats||{};
+  if(bag.mega) give(team.find(m=>m.mega&&!m.item),"mega");
+  if(bag.gmax) give(team.find(m=>m.gmax&&!m.item),"gmax");
+  give([...free()].sort((a,b)=>Math.max(st(b).atk||0,st(b).spa||0)-Math.max(st(a).atk||0,st(a).spa||0))[0],"bulb");
+  const bySpe=[...free()].sort((a,b)=>(st(b).spe||0)-(st(a).spe||0));
+  give(bySpe[bySpe.length-1],"claw");   // slowest → Quick Claw
+  give(bySpe[0],"sash");                // fastest → Focus Sash
+  const byHp=[...free()].sort((a,b)=>(st(b).hp||0)-(st(a).hp||0));
+  give(byHp[0],"lefto"); give(byHp[1]||byHp[0],"sitrus");
+}
+function assignItem(side,i,k){
+  const team=S.players[side].team, bag=S.bags[side], m=team[i];
+  if((bag[k]||0)<=0) return;
+  if(m.item) bag[m.item]++;            // return whatever it held
+  m.item=k; bag[k]--;
+}
+function clearItem(side,i){
+  const m=S.players[side].team[i]; if(m.item){ S.bags[side][m.item]++; m.item=null; }
+}
+function renderItemBag(){
+  const side=S.itemSide, p=S.players[side], team=p.team, bag=S.bags[side];
+  const cards=team.map((m,i)=>{
+    const it=m.item?ITEMS[m.item]:null;
+    const tag=m.mega?'<span class="ibadge mega">MEGA</span>':m.gmax?'<span class="ibadge gmax">G-MAX</span>':"";
+    return `<div class="icard ${S.pickMon===i?"on":""}" data-i="${i}">
+       <div class="ispr"><img data-id="${m.id}" data-shiny="${m.shiny?1:0}" alt=""></div>
+       <div class="iname">${escapeHtml(m.display)} ${tag}</div>
+       <div class="iheld" ${it?`data-clear="${i}"`:""}>${it?`${it.emoji} ${it.name} ✕`:'<span class="muted">— no item —</span>'}</div>
+     </div>`;
+  }).join("");
+  const bagRow=Object.keys(ITEMS).map(k=>{
+    if(k==="mega"&&!teamHasMega(team)) return "";
+    if(k==="gmax"&&!teamHasGmax(team)) return "";
+    const n=bag[k]||0;
+    return `<button class="ibag ${n>0?"":"gone"}" data-k="${k}" ${n>0?"":"disabled"}>
+       <span class="iemj">${ITEMS[k].emoji}</span><span class="inm">${ITEMS[k].name}</span><span class="ict">×${n}</span></button>`;
+  }).join("");
+  const lastLabel=(side===0 && !S.players[1].ai)?"Next player →":"Start Battle ⚔️";
+  $("app").innerHTML=`
+    <div class="bhead"><h2>Item Bag</h2><span class="disp">${escapeHtml(p.name)}${p.ai?" 🤖":""}</span></div>
+    <div class="ibwrap">
+      <p class="ihint">Tap a Pokémon, then tap an item to give it. Tap its item to remove it. Each Pokémon holds one item.</p>
+      <div class="igrid">${cards}</div>
+      <div class="ibaglbl">Bag</div>
+      <div class="ibagrow">${bagRow}</div>
+      <div class="idesc" id="idesc">Pick a Pokémon, then choose an item.</div>
+      <button class="btn" id="idone">${lastLabel}</button>
+      <button class="btn ghost" id="iskip" style="margin-top:10px">Skip — no items</button>
+    </div>`;
+  hydrateSprites($("app"));
+  const setDesc=t=>{ const d=$("idesc"); if(d) d.textContent=t; };
+  $("app").querySelectorAll(".icard").forEach(c=>c.onclick=()=>{
+    const i=+c.dataset.i; S.pickMon=(S.pickMon===i)?null:i; renderItemBag();
+  });
+  $("app").querySelectorAll("[data-clear]").forEach(el=>el.onclick=e=>{
+    e.stopPropagation(); clearItem(side,+el.dataset.clear); renderItemBag();
+  });
+  $("app").querySelectorAll(".ibag").forEach(bn=>{
+    const k=bn.dataset.k;
+    bn.onclick=()=>{
+      if(S.pickMon==null){ setDesc(ITEMS[k].desc+"  ·  Pick a Pokémon first."); return; }
+      const m=team[S.pickMon];
+      if(k==="mega"&&!m.mega){ setDesc("Only a Mega-capable Pokémon can hold the Mega Stone."); return; }
+      if(k==="gmax"&&!m.gmax){ setDesc("Only a G-Max Pokémon can hold the G-Max Band."); return; }
+      assignItem(side,S.pickMon,k); renderItemBag();
+    };
+  });
+  $("idone").onclick=()=>{
+    if(side===0 && !S.players[1].ai){ S.itemSide=1; S.pickMon=null; renderItemBag(); }
+    else startBattle();
+  };
+  $("iskip").onclick=()=>{
+    team.forEach((m,i)=>clearItem(side,i));
+    if(side===0 && !S.players[1].ai){ S.itemSide=1; S.pickMon=null; renderItemBag(); }
+    else startBattle();
+  };
+}
+
+/* ============================================================
+   BATTLE FLOW
+   ============================================================ */
+// Make sure every battler has real base stats (and, for Megas/G-Max, the
+// base-species stats they revert to without their stone).
+async function prepareBattlers(){
+  for(const side of [0,1]){
+    for(const m of S.players[side].team){
+      if((!m.stats||!m.stats.hp) && S.apiOk){ try{ const d=await fetchMon(m.name); m.stats=d.stats; }catch(e){} }
+      if((m.mega||m.gmax) && !m.baseStats && S.apiOk){
+        const base=speciesOf(m.name);
+        if(base){ try{ const d=await fetchMon(base); m.baseStats=d.stats; }catch(e){} }
+      }
+    }
+  }
+}
+async function startBattle(){
   S.screen="battle";
+  $("app").innerHTML=`<div style="text-align:center;padding:70px 10px"><div class="spinner"></div><p class="loadline">Preparing battle…</p></div>`;
+  await prepareBattlers();
   S.bt={
     teams:[ S.players[0].team.map(makeBattler), S.players[1].team.map(makeBattler) ],
     names:[S.players[0].name, S.players[1].name],
     ai:[false, S.players[1].ai],
-    active:[0,0], log:[], busy:false, over:false, winner:-1, auto:false,
+    active:[0,0], log:[], busy:false, over:false, winner:-1, auto:false, switching:false, clawMsg:null,
   };
   renderBattle();
   pushLog(`<span class="muted">The battle begins! ${escapeHtml(S.bt.names[0])} vs ${escapeHtml(S.bt.names[1])}.</span>`);
@@ -1159,15 +1352,22 @@ function renderBattle(){
       </div>
       <div class="gb-text" id="bLog"></div>
       <div class="gb-menu" id="bMoves"></div>
-      <div class="bctrl"><button class="btn ghost" id="bAuto">${bt.auto?"Auto: On":"Auto-battle"}</button></div>
+      <div class="bctrl">
+        <button class="btn ghost" id="bSwitch">🔄 Switch</button>
+        <button class="btn ghost" id="bAuto">${bt.auto?"Auto: On":"Auto-battle"}</button>
+      </div>
     </div>`;
   paintPanel(1); paintPanel(0);
   renderMoves(); renderLog(); updateCount();
   $("bAuto").onclick=()=>{
     bt.auto=!bt.auto; $("bAuto").textContent=bt.auto?"Auto: On":"Auto-battle";
-    renderMoves();
+    bt.switching=false; renderMoves();
     if(bt.auto){ if(!bt.busy&&!bt.over) scheduleAuto(); }
     else if(!bt.busy&&!bt.over) setPrompt();
+  };
+  $("bSwitch").onclick=()=>{
+    if(bt.busy||bt.over||bt.auto||bt.ai[0]) return;
+    bt.switching=!bt.switching; renderMoves();
   };
 }
 // classic front/back pixel sprites (back = your side), with fallbacks
@@ -1195,11 +1395,13 @@ function paintPanel(side){
   monHost.innerHTML=`<div class="bsprite ${bl.fainted?"fainted":""}" id="spr${side}"><img id="imgb${side}" alt="${escapeHtml(m.display)}"></div>`;
   const img=$("imgb"+side); if(img) setSprite(img, battleSprite(m,back));
   const dots=bt.teams[side].map(x=>`<span class="bdot ${x.fainted?"out":""}"></span>`).join("");
-  let nm=m.display; if(nm.length>13) nm=nm.slice(0,12)+"…";
+  let nm=m.display; if(nm.length>12) nm=nm.slice(0,11)+"…";
   const shinyTag=m.shiny?' <span style="color:#d8a828">✦</span>':"";
+  const formTag=bl.isMega?' <span style="color:#c94fd8">◆M</span>':bl.isGmax?' <span style="color:#e0245e">◆G</span>':"";
+  const itemTag=bl.item?` <span title="${ITEMS[bl.item].name}">${ITEMS[bl.item].emoji}</span>`:"";
   hpHost.innerHTML=`
     <div class="gb-box hpbox">
-      <div class="hb-top"><span class="hb-name">${escapeHtml(nm)}${shinyTag}</span><span class="hb-lv">Lv${LV}</span></div>
+      <div class="hb-top"><span class="hb-name">${escapeHtml(nm)}${shinyTag}${formTag}${itemTag}</span><span class="hb-lv">Lv${LV}</span></div>
       <div class="hb-bar"><span class="hb-hp">HP</span><div class="hpbar"><div class="hpfill" id="hp${side}"></div></div></div>
       ${side===0?`<div class="hb-num" id="hpn0"></div>`:`<span id="hpn1" style="display:none"></span>`}
       <div class="hb-dots">${dots}</div>
@@ -1218,16 +1420,40 @@ function setHp(side,animate){
 }
 function renderMoves(){
   const host=$("bMoves"); if(!host) return;
-  const bt=S.bt, me=activeB(0);
+  const bt=S.bt;
+  if(bt.switching){ return renderSwitch(host); }
+  const me=activeB(0);
   const disabled = bt.busy||bt.over||bt.auto||bt.ai[0];
   host.innerHTML=me.moves.map((mv,i)=>{
     const col=TYPE_COLORS[mv.type]||"#777";
+    const pri=mv.pri?` ↑${mv.pri}`:"";
     return `<button class="mvb" data-i="${i}" ${disabled?"disabled":""}>
        <span class="mv-dot" style="background:${col}"></span>${mv.name}
-       <span class="mv-sub">${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}</span>
+       <span class="mv-sub">${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}${pri}</span>
      </button>`;
   }).join("");
-  if(!disabled) host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>doTurn(+b.dataset.i));
+  if(!disabled) host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>doTurn({type:"move",idx:+b.dataset.i}));
+}
+function renderSwitch(host){
+  const bt=S.bt, disabled=bt.busy||bt.over;
+  let html="";
+  bt.teams[0].forEach((x,i)=>{
+    if(i===bt.active[0]) return;
+    const pct=Math.max(0,Math.round(x.hp/x.max*100));
+    const it=x.item?" · "+ITEMS[x.item].emoji:"";
+    html+=`<button class="mvb" data-sw="${i}" ${(x.fainted||disabled)?"disabled":""}>
+       ${escapeHtml(x.mon.display)}
+       <span class="mv-sub">HP ${Math.max(0,Math.ceil(x.hp))}/${x.max} (${pct}%)${x.fainted?" · fainted":it}</span>
+     </button>`;
+  });
+  html+=`<button class="mvb" data-sw="back"><span class="mv-dot" style="background:#888"></span>◀ Back
+     <span class="mv-sub">choose a move instead</span></button>`;
+  host.innerHTML=html;
+  host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.sw;
+    if(v==="back"){ bt.switching=false; renderMoves(); return; }
+    bt.switching=false; doTurn({type:"switch",to:+v});
+  });
 }
 function shade(hex){ // darken a hex color for gradient
   const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
@@ -1243,19 +1469,54 @@ function effWord(e){
   return "";
 }
 
-async function doTurn(p1MoveIdx){
+async function doTurn(action){
   const bt=S.bt; if(bt.busy||bt.over) return;
-  bt.busy=true; renderMoves();
+  if(typeof action==="number") action={type:"move",idx:action};
+  if(!action) action={type:"move",idx:0};
+  bt.busy=true; bt.switching=false; renderMoves();
+  const auto = bt.ai[0]||bt.auto;
+
+  // ---- player chooses to switch: it costs the turn, the foe still attacks ----
+  if(action.type==="switch"){
+    const outMon=activeB(0);
+    bt.active[0]=action.to;
+    const inMon=activeB(0);
+    paintPanel(0);
+    pushLog(`<span class="muted">You withdrew ${escapeHtml(outMon.mon.display)} and sent out ${escapeHtml(inMon.mon.display)}!</span>`);
+    beep(700,.08,"sine",.04); await wait(750);
+    const foe=activeB(1);
+    if(!foe.fainted && !inMon.fainted){
+      await performMove(1, foe, inMon, bestMove(foe,inMon));
+    }
+    return afterTurn();
+  }
+
+  // ---- both sides attack ----
   const you=activeB(0), foe=activeB(1);
-  const m0 = (bt.ai[0]||bt.auto) ? bestMove(you,foe) : you.moves[p1MoveIdx];
+  const m0 = auto ? bestMove(you,foe) : you.moves[action.idx];
   const m1 = bestMove(foe,you);
-  const first = you.b.spe>foe.b.spe || (you.b.spe===foe.b.spe && Math.random()<.5) ? 0 : 1;
+  let first = you.b.spe>foe.b.spe ? 0 : you.b.spe<foe.b.spe ? 1 : (Math.random()<.5?0:1);
+  const p0=m0.pri||0, p1=m1.pri||0;
+  if(p0!==p1){ first = p0>p1 ? 0 : 1; }             // priority moves override speed
+  else {                                             // Quick Claw: slower side gets 20% to jump
+    const slow=1-first, slowB=(slow===0?you:foe);
+    if(slowB.item==="claw" && Math.random()<0.2){ first=slow; bt.clawMsg=slow; }
+  }
+  if(bt.clawMsg!=null){
+    pushLog(`<span class="eff">${bt.clawMsg===0?"Your":escapeHtml(bt.names[1])+"'s"} ${escapeHtml((bt.clawMsg===0?you:foe).mon.display)}'s Quick Claw let it move first!</span>`);
+    bt.clawMsg=null; await wait(650);
+  }
   const seq = first===0 ? [[0,you,foe,m0],[1,foe,you,m1]] : [[1,foe,you,m1],[0,you,foe,m0]];
   for(const [side,atk,def,mv] of seq){
     if(atk.fainted||def.fainted) continue;
     await performMove(side,atk,def,mv);
     if(bt.over) break;
   }
+  return afterTurn();
+}
+async function afterTurn(){
+  const bt=S.bt;
+  if(!bt.over) await endOfTurn();       // Leftovers
   if(!bt.over) await handleFaints();
   bt.busy=false;
   if(bt.over){ setTimeout(showBattleResult,900); return; }
@@ -1268,18 +1529,43 @@ async function performMove(side,atk,def,mv){
   beep(side===0?520:300,.05,"square",.04);
   await wait(320);
   const r=calcDamage(atk,def,mv);
+  const wasFull = def.hp>=def.max;
   def.hp-=r.d;
+  // Focus Sash — survive a KO from full HP
+  let hung=false;
+  if(def.hp<=0 && def.item==="sash" && !def.sashUsed && wasFull){ def.hp=1; def.sashUsed=true; hung=true; }
   const sp=$("spr"+defSide); if(sp){ sp.classList.add("hitflash"); setTimeout(()=>sp.classList.remove("hitflash"),400); }
   setHp(defSide,true);
   let extra=effWord(r.eff)+(r.crit&&r.eff>0?' <span class="crit">A critical hit!</span>':"");
   if(extra) pushLog(extra.trim());
-  await wait(560);
+  await wait(520);
+  if(hung){
+    pushLog(`<span class="eff">${escapeHtml(def.mon.display)} hung on with its Focus Sash!</span>`);
+    beep(900,.08,"triangle",.05); await wait(650);
+  }
+  // Sitrus Berry — heal once at 50% or less
+  if(def.hp>0 && def.item==="sitrus" && !def.sitrusUsed && def.hp<=def.max/2){
+    def.sitrusUsed=true;
+    def.hp=Math.min(def.max, def.hp+Math.round(def.max/4)); setHp(defSide,true);
+    pushLog(`<span class="eff">${escapeHtml(def.mon.display)} ate its Sitrus Berry!</span>`);
+    beep(880,.08,"triangle",.05); await wait(650);
+  }
   if(def.hp<=0){
     def.hp=0; def.fainted=true; setHp(defSide,true);
     const sd=$("spr"+defSide); if(sd) sd.classList.add("fainted");
     pushLog(`<span class="muted">${escapeHtml(def.mon.display)} fainted!</span>`);
     beep(160,.25,"sawtooth",.05);
     await wait(650);
+  }
+}
+async function endOfTurn(){
+  for(const side of [0,1]){
+    const b=activeB(side);
+    if(!b.fainted && b.item==="lefto" && b.hp<b.max){
+      b.hp=Math.min(b.max, b.hp+Math.round(b.max/6)); setHp(side,true);
+      pushLog(`<span class="muted">${escapeHtml(b.mon.display)} restored a little HP with Leftovers.</span>`);
+      beep(760,.06,"sine",.03); await wait(520);
+    }
   }
 }
 async function handleFaints(){
@@ -1335,7 +1621,7 @@ function showBattleResult(){
     </div>
     <div class="foot">Tip: speed decides who strikes first — a fast glass cannon can win before it's hit.</div>`;
   hydrateSprites($("app"));
-  $("brematch").onclick=startBattle;
+  $("brematch").onclick=startItemPhase;
   $("bnew").onclick=()=>{
     S.players=[
       {name:S.p1name, ai:false, team:[], noGoRoundLeft:0},
