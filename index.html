@@ -630,8 +630,13 @@ function buildMeta(){
   }
 }
 // Apply the region + legendary settings to produce the draw pool.
+// Cosmetic / ride / gimmick forms that have no official artwork (or aren't real
+// battle forms) — these show a blank Poké Ball and must never be draftable.
+const JUNK_FORM=/-(totem|cosplay|rock-star|belle|pop-star|phd|libre|starter|eternamax|battle-bond|ash|own-tempo|gulping|gorging|hangry|noice|power-construct|glide-mode|drive-mode|aquatic-mode|low-power-mode|apex-build|limited-build|sprinting-build|swimming-build|gliding-build|cap)$/;
+function isJunkForm(n){ return JUNK_FORM.test(n); }
 function computePool(){
   S.pool=S.pokedex.filter(n=>{
+    if(isJunkForm(n)) return false;
     const m=S.meta[n];
     if(!m) return S.region===0;
     if(S.region!==0 && m.gen!==S.region) return false;
@@ -808,7 +813,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v13 — status moves</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v14 — cleaner draft</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
