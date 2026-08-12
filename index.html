@@ -326,6 +326,32 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 .revabil{font-size:12px;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--line);
   border-radius:10px;padding:7px 10px;margin:2px 4px 10px;line-height:1.35}
 .revabil b{color:var(--white)}
+/* ---------- accounts (login bar + modal) ---------- */
+.acctbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--slot);border:1px solid var(--line);border-radius:14px;
+  padding:8px 12px;margin-bottom:10px;font-size:13.5px}
+.acctbar.off{color:var(--muted);justify-content:center}
+.acctbar .who{font-family:var(--display);font-weight:600}
+.acctbar .rec{font-family:var(--mono);font-size:12px;color:var(--yellow)}
+.acctbar .acbtn{margin-left:auto;background:var(--slot);border:1px solid var(--line);color:var(--white);
+  border-radius:10px;padding:7px 12px;font-family:var(--display);font-weight:600;font-size:13px;cursor:pointer}
+.acctbar .acbtn.primary{background:linear-gradient(180deg,var(--red),var(--red-d));border:none;box-shadow:0 3px 0 #7c1420}
+.modal-back{position:fixed;inset:0;background:rgba(8,6,26,.72);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:60;padding:18px}
+.modal-back.show{display:flex;animation:fade .2s ease}
+.acct{width:100%;max-width:340px;border-radius:22px;padding:18px 16px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.acct-tabs{display:flex;gap:8px;margin-bottom:14px}
+.acct-tab{flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:var(--slot);
+  color:var(--muted);font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer}
+.acct-tab.on{border-color:var(--yellow);color:#fff;background:linear-gradient(180deg,rgba(255,203,5,.18),rgba(255,203,5,.05))}
+.acct-in{width:100%;background:var(--slot);border:1.5px solid var(--line);border-radius:12px;
+  color:#fff;padding:12px;font-size:15px;font-family:system-ui;margin-bottom:10px}
+.acct-in:focus{outline:none;border-color:var(--yellow)}
+.acct-err{color:#ff8a8a;font-size:13px;min-height:18px;margin-bottom:6px;text-align:center}
+.acct-note{color:var(--muted);font-size:11.5px;line-height:1.4;margin-top:12px;text-align:center}
+
 /* ---------- battle engine UI (abilities, status, weather) ---------- */
 .hb-abil{font-family:var(--pixel);font-size:6.5px;color:#4a5a70;margin-top:5px;letter-spacing:.2px}
 .hb-status{font-family:var(--pixel);font-size:6.5px;color:#fff;padding:1px 3px;border-radius:3px;display:none;vertical-align:middle}
@@ -389,11 +415,28 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 <div class="app" id="app"></div>
 <div class="flash" id="flash"></div>
 <div class="backdrop" id="backdrop"><div id="revealHost"></div></div>
+<div class="modal-back" id="acctBack"><div id="acctHost"></div></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* ============================================================
    POKÉ DRAFT DUEL  — vanilla JS, self-contained
    ============================================================ */
+/* ---- Firebase (accounts + online) ---- */
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyBkF-nWHpRBNAMY8l4sYveRYgQJ660W_c0",
+  authDomain:"poke-draft-duel.firebaseapp.com",
+  databaseURL:"https://poke-draft-duel-default-rtdb.firebaseio.com",
+  projectId:"poke-draft-duel",
+  storageBucket:"poke-draft-duel.firebasestorage.app",
+  messagingSenderId:"1049793894037",
+  appId:"1:1049793894037:web:b77c13255bf7bc59e76d9c"
+};
+let FBauth=null, FBdb=null, ME=null;
+function fbReady(){ return !!(FBauth&&FBdb); }
+
 const API = "https://pokeapi.co/api/v2";
 const ART = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork";
 const SPR = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
@@ -745,6 +788,7 @@ function render(){
 function renderSetup(){
   const app=$("app");
   app.innerHTML=`
+    ${accountBarHTML()}
     <div class="hero">
       <div style="width:74px;margin:0 auto"><div class="ball" style="animation:wobble 3s infinite;pointer-events:none"></div></div>
       <h1>Poké Draft Duel</h1>
@@ -805,7 +849,7 @@ function renderSetup(){
       <div class="field">
         <label>Trainer names <span class="hint">— optional</span></label>
         <div class="names">
-          <input id="n1" maxlength="14" placeholder="Player 1" value="${S.p1name==="Player 1"?"":S.p1name}">
+          <input id="n1" maxlength="14" placeholder="Player 1" value="${escapeHtml((ME&&ME.name)||(S.p1name==="Player 1"?"":S.p1name))}">
           <input id="n2" maxlength="14" placeholder="${S.p2ai?"AI Rival":"Player 2"}" value="${(S.p2name==="AI Rival"||S.p2name==="Player 2")?"":S.p2name}">
         </div>
       </div>
@@ -813,7 +857,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v14 — cleaner draft</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v15 — accounts</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -833,6 +877,7 @@ function renderSetup(){
   }
 
   $("start").onclick=startGame;
+  bindAccountBar();
 }
 function updatePreview(){
   const ll=$("loadline"); if(!ll) return;
@@ -2101,6 +2146,7 @@ function showBattleResult(){
   const bt=S.bt;
   const winName=bt.names[bt.winner];
   sfxWin(); confetti();
+  recordResult(bt.winner===0);   // count the human's (side 0) result on their account
   const teamCell=(side)=>bt.teams[side].map(x=>
     `<div class="vsmon ${x.mon.shiny?"shiny":""} ${x.fainted?"":""}" title="${escapeHtml(x.mon.display)}" style="${x.fainted?"opacity:.3;filter:grayscale(1)":""}">
        <img data-id="${x.mon.id}" data-shiny="${x.mon.shiny?1:0}" alt=""></div>`).join("");
@@ -2140,7 +2186,99 @@ function showBattleResult(){
   $("bmenu").onclick=()=>{ S.screen="setup"; render(); };
 }
 
+/* ============================================================
+   ACCOUNTS  (Firebase Auth + Realtime Database)
+   ============================================================ */
+function initFirebase(){
+  try{
+    if(!window.firebase){ return; }
+    firebase.initializeApp(FIREBASE_CONFIG);
+    FBauth=firebase.auth(); FBdb=firebase.database();
+    FBauth.onAuthStateChanged(async u=>{
+      if(u){ await loadProfile(u); } else { ME=null; }
+      if(S.screen==="setup") renderSetup();
+    });
+  }catch(e){ console.warn("Firebase init failed:",e); FBauth=null; FBdb=null; }
+}
+async function loadProfile(u){
+  ME={uid:u.uid, email:u.email, name:(u.email||"Trainer").split("@")[0], wins:0, losses:0};
+  try{
+    const snap=await FBdb.ref("users/"+u.uid).once("value");
+    if(snap.exists()){ const d=snap.val()||{}; ME.name=d.name||ME.name; ME.wins=d.wins||0; ME.losses=d.losses||0; }
+    else{ await FBdb.ref("users/"+u.uid).set({name:ME.name, wins:0, losses:0, created:Date.now()}); }
+  }catch(e){ console.warn("profile load:",e); }
+}
+async function recordResult(win){
+  if(!fbReady()||!ME) return;
+  if(win) ME.wins++; else ME.losses++;
+  try{ await FBdb.ref("users/"+ME.uid).update({wins:ME.wins, losses:ME.losses}); }catch(e){}
+}
+const fbErr=c=>({
+  "auth/invalid-email":"That doesn't look like a valid email.",
+  "auth/missing-password":"Please enter a password.",
+  "auth/weak-password":"Password must be at least 6 characters.",
+  "auth/email-already-in-use":"That email already has an account — try logging in.",
+  "auth/invalid-credential":"Wrong email or password.",
+  "auth/wrong-password":"Wrong email or password.",
+  "auth/user-not-found":"No account with that email — sign up first.",
+  "auth/too-many-requests":"Too many tries. Wait a moment and retry.",
+  "auth/network-request-failed":"Network problem — check your connection."
+}[c]||"Something went wrong. Try again.");
+
+function openAcct(mode){ S.acctMode=mode||"login"; S.acctErr=""; renderAcct(); $("acctBack").classList.add("show"); }
+function closeAcct(){ $("acctBack").classList.remove("show"); }
+function renderAcct(){
+  const signup=S.acctMode==="signup";
+  $("acctHost").innerHTML=`
+    <div class="acct">
+      <div class="acct-tabs">
+        <button class="acct-tab ${!signup?"on":""}" id="tabLogin">Log in</button>
+        <button class="acct-tab ${signup?"on":""}" id="tabSignup">Sign up</button>
+      </div>
+      ${signup?`<input class="acct-in" id="acName" maxlength="14" placeholder="Trainer name" value="${escapeHtml(S.acctName||"")}">`:""}
+      <input class="acct-in" id="acEmail" type="email" autocomplete="email" placeholder="Email" value="${escapeHtml(S.acctEmail||"")}">
+      <input class="acct-in" id="acPass" type="password" autocomplete="${signup?"new-password":"current-password"}" placeholder="Password (6+ characters)">
+      <div class="acct-err" id="acErr">${escapeHtml(S.acctErr||"")}</div>
+      <button class="btn" id="acGo">${signup?"Create account":"Log in"}</button>
+      <button class="btn ghost" id="acCancel" style="margin-top:8px">Play offline</button>
+      <div class="acct-note">Your email &amp; password are handled securely by Google. We only store your trainer name and win-loss record.</div>
+    </div>`;
+  $("tabLogin").onclick=()=>openAcct("login");
+  $("tabSignup").onclick=()=>openAcct("signup");
+  $("acCancel").onclick=closeAcct;
+  const save=()=>{ S.acctEmail=$("acEmail").value.trim(); if($("acName")) S.acctName=$("acName").value.trim(); };
+  $("acEmail").oninput=save; if($("acName")) $("acName").oninput=save;
+  $("acGo").onclick=async()=>{
+    save(); const email=$("acEmail").value.trim(), pass=$("acPass").value, name=($("acName")?$("acName").value.trim():"")||email.split("@")[0];
+    const go=$("acGo"); go.disabled=true; go.textContent="…";
+    try{
+      if(signup){
+        const cred=await FBauth.createUserWithEmailAndPassword(email,pass);
+        await FBdb.ref("users/"+cred.user.uid).set({name,wins:0,losses:0,created:Date.now()});
+      } else {
+        await FBauth.signInWithEmailAndPassword(email,pass);
+      }
+      S.acctErr=""; S.acctEmail=""; S.acctName=""; closeAcct();
+    }catch(e){ S.acctErr=fbErr(e.code); renderAcct(); }
+  };
+}
+function accountBarHTML(){
+  if(!fbReady()) return `<div class="acctbar off">Online sign-in unavailable right now</div>`;
+  if(ME) return `<div class="acctbar">
+      <span class="who">👤 ${escapeHtml(ME.name)}</span>
+      <span class="rec">⚔️ ${ME.wins}W – ${ME.losses}L</span>
+      <button class="acbtn" id="acLogout">Log out</button>
+    </div>`;
+  return `<div class="acctbar"><span class="who muted">Not logged in</span>
+      <button class="acbtn primary" id="acLogin">Log in / Sign up</button></div>`;
+}
+function bindAccountBar(){
+  const lo=$("acLogout"); if(lo) lo.onclick=()=>{ FBauth.signOut(); };
+  const li=$("acLogin"); if(li) li.onclick=()=>openAcct("login");
+}
+
 /* ---------- boot ---------- */
+initFirebase();
 render();
 loadData(); // warm up in background
 </script>
