@@ -326,6 +326,27 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 .revabil{font-size:12px;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--line);
   border-radius:10px;padding:7px 10px;margin:2px 4px 10px;line-height:1.35}
 .revabil b{color:var(--white)}
+/* ---------- online lobby ---------- */
+.online{max-width:460px;margin:0 auto;padding-top:6px}
+.on-card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+  border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.on-title{font-family:var(--display);font-weight:700;font-size:18px;margin-bottom:4px}
+.on-sub{color:var(--muted);font-size:13px;margin:0 0 12px}
+.on-or{text-align:center;color:var(--muted);font-family:var(--display);margin:6px 0 12px}
+.on-code{width:100%;text-align:center;letter-spacing:8px;text-transform:uppercase;
+  background:var(--slot);border:1.5px solid var(--line);border-radius:12px;color:#fff;
+  padding:12px;font-size:26px;font-family:var(--mono);margin-bottom:10px}
+.on-code:focus{outline:none;border-color:var(--yellow)}
+.on-bigcode{text-align:center;font-family:var(--mono);font-weight:700;font-size:44px;letter-spacing:10px;
+  color:var(--yellow);margin:6px 0 14px;text-shadow:0 3px 0 rgba(0,0,0,.3)}
+.on-players{display:flex;flex-direction:column;gap:8px;margin:6px 0}
+.on-player{display:flex;align-items:center;gap:9px;background:var(--slot);border:1px solid var(--line);
+  border-radius:12px;padding:11px 13px;font-family:var(--display);font-weight:600;color:var(--muted)}
+.on-player.on{color:#fff;border-color:rgba(55,214,122,.4)}
+.on-player .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.2)}
+.on-player .dot.on{background:var(--good);box-shadow:0 0 8px var(--good)}
+.on-ready{text-align:center;font-family:var(--display);font-weight:700;color:var(--good);font-size:17px;margin:12px 0 6px}
+
 /* ---------- accounts (login bar + modal) ---------- */
 .acctbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   background:var(--slot);border:1px solid var(--line);border-radius:14px;
@@ -778,6 +799,7 @@ async function generateTurnMons(){
    ============================================================ */
 function render(){
   if(S.screen==="setup")   return renderSetup();
+  if(S.screen==="online")  return renderOnline();
   if(S.screen==="game")    return renderGame();
   if(S.screen==="itembag") return renderItemBag();
   if(S.screen==="battle")  return S.bt?renderBattle():renderSetup();
@@ -857,7 +879,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v15 — accounts</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v16 — online lobby</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -2267,14 +2289,130 @@ function accountBarHTML(){
   if(ME) return `<div class="acctbar">
       <span class="who">👤 ${escapeHtml(ME.name)}</span>
       <span class="rec">⚔️ ${ME.wins}W – ${ME.losses}L</span>
+      <button class="acbtn" id="acOnline">🌐 Play Online</button>
       <button class="acbtn" id="acLogout">Log out</button>
     </div>`;
-  return `<div class="acctbar"><span class="who muted">Not logged in</span>
+  return `<div class="acctbar"><span class="who muted">Log in to play online &amp; save your record</span>
       <button class="acbtn primary" id="acLogin">Log in / Sign up</button></div>`;
 }
 function bindAccountBar(){
   const lo=$("acLogout"); if(lo) lo.onclick=()=>{ FBauth.signOut(); };
   const li=$("acLogin"); if(li) li.onclick=()=>openAcct("login");
+  const on=$("acOnline"); if(on) on.onclick=()=>{ S.net=null; S.netErr=""; S.screen="online"; render(); };
+}
+
+/* ============================================================
+   ONLINE — Step 1: rooms + live presence (room codes)
+   ============================================================ */
+function genCode(){ const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s=""; for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)]; return s; }
+function roomRef(code){ return FBdb.ref("rooms/"+code); }
+function detachRoom(){ if(S.net&&S.net.ref){ try{ S.net.ref.off("value", S.net.cb); }catch(e){} S.net.ref=null; } }
+
+async function createRoom(){
+  if(!fbReady()||!ME) return;
+  let code=genCode();
+  try{
+    // avoid a collision with an existing open room
+    for(let t=0;t<5;t++){ const s=await roomRef(code).once("value"); if(!s.exists()) break; code=genCode(); }
+    await roomRef(code).set({
+      host:{uid:ME.uid,name:ME.name}, guest:null, phase:"lobby", created:Date.now()
+    });
+    S.net={code, role:"host", ref:null, room:null, cb:null};
+    // if the host leaves, tear the room down
+    roomRef(code).onDisconnect().remove();
+    listenRoom(code);
+  }catch(e){ S.netErr="Could not create a room. "+(e.message||""); render(); }
+}
+async function joinRoom(code){
+  if(!fbReady()||!ME) return;
+  code=(code||"").toUpperCase().trim();
+  if(code.length!==4){ S.netErr="Enter the 4-character room code."; render(); return; }
+  try{
+    const snap=await roomRef(code).once("value");
+    if(!snap.exists()){ S.netErr="No room with that code. Check it and try again."; render(); return; }
+    const room=snap.val();
+    if(room.guest && room.guest.uid && room.guest.uid!==ME.uid){ S.netErr="That room is already full."; render(); return; }
+    await roomRef(code).child("guest").set({uid:ME.uid,name:ME.name});
+    S.net={code, role:"guest", ref:null, room:null, cb:null};
+    roomRef(code).child("guest").onDisconnect().remove();
+    listenRoom(code);
+  }catch(e){ S.netErr="Could not join: "+(e.message||""); render(); }
+}
+function listenRoom(code){
+  detachRoom();
+  const ref=roomRef(code);
+  const cb=ref.on("value", snap=>{
+    if(!S.net||S.net.code!==code) return;
+    const room=snap.val();
+    if(!room){ // room was deleted (host left)
+      if(S.net.role==="guest"){ S.netErr="The host closed the room."; }
+      S.net=null; if(S.screen==="online") render(); return;
+    }
+    S.net.room=room;
+    if(S.screen==="online") render();
+  });
+  S.net.ref=ref; S.net.cb=cb;
+}
+async function leaveRoom(){
+  if(!S.net) { S.screen="setup"; render(); return; }
+  const {code,role}=S.net; detachRoom();
+  try{
+    if(role==="host") await roomRef(code).remove();
+    else await roomRef(code).child("guest").remove();
+  }catch(e){}
+  S.net=null; S.screen="setup"; render();
+}
+
+function renderOnline(){
+  const app=$("app");
+  if(!fbReady()||!ME){ S.screen="setup"; return render(); }
+  const net=S.net, room=net&&net.room;
+  const inRoom=!!(net&&net.code);
+  const connected=!!(room&&room.host&&room.guest);
+  let body;
+  if(!inRoom){
+    body=`
+      <div class="on-card">
+        <div class="on-title">Create a room</div>
+        <p class="on-sub">Make a room and share the code with your friend.</p>
+        <button class="btn" id="onCreate">Create room</button>
+      </div>
+      <div class="on-or">or</div>
+      <div class="on-card">
+        <div class="on-title">Join a room</div>
+        <p class="on-sub">Enter the code your friend gave you.</p>
+        <input class="on-code" id="onJoinCode" maxlength="4" autocapitalize="characters" placeholder="ABCD">
+        <button class="btn ghost" id="onJoin">Join</button>
+      </div>
+      <div class="acct-err" style="text-align:center">${escapeHtml(net&&S.netErr||"")}</div>`;
+  } else {
+    const hn=room&&room.host?room.host.name:"—";
+    const gn=room&&room.guest?room.guest.name:null;
+    body=`
+      <div class="on-card">
+        <div class="on-sub" style="text-align:center">Room code — share this</div>
+        <div class="on-bigcode">${escapeHtml(net.code)}</div>
+        <div class="on-players">
+          <div class="on-player on"><span class="dot on"></span>${escapeHtml(hn)}${net.role==="host"?" (you)":""}</div>
+          <div class="on-player ${gn?"on":""}"><span class="dot ${gn?"on":""}"></span>${gn?escapeHtml(gn)+(net.role==="guest"?" (you)":""):"waiting for a friend…"}</div>
+        </div>
+        ${connected
+          ? `<div class="on-ready">✅ Both trainers connected!</div>
+             <p class="on-sub" style="text-align:center">Live battles are the very next update — your connection is working. 🎉</p>`
+          : `<p class="on-sub" style="text-align:center">Tell your friend to tap <b>Play Online → Join a room</b> and enter this code.</p>`}
+        <button class="btn ghost" id="onLeave" style="margin-top:12px">Leave room</button>
+      </div>`;
+  }
+  app.innerHTML=`
+    <div class="online">
+      <button class="acbtn" id="onBack" style="margin-bottom:12px">← Back</button>
+      <h2 class="disp" style="text-align:center;margin:4px 0 14px">🌐 Play Online</h2>
+      ${body}
+    </div>`;
+  const bk=$("onBack"); if(bk) bk.onclick=()=>{ if(S.net) leaveRoom(); else { S.screen="setup"; render(); } };
+  const c=$("onCreate"); if(c) c.onclick=()=>{ S.netErr=""; createRoom(); };
+  const j=$("onJoin"); if(j) j.onclick=()=>{ S.netErr=""; joinRoom($("onJoinCode").value); };
+  const lv=$("onLeave"); if(lv) lv.onclick=leaveRoom;
 }
 
 /* ---------- boot ---------- */
