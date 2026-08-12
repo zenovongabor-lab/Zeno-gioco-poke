@@ -346,6 +346,8 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 .on-player .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.2)}
 .on-player .dot.on{background:var(--good);box-shadow:0 0 8px var(--good)}
 .on-ready{text-align:center;font-family:var(--display);font-weight:700;color:var(--good);font-size:17px;margin:12px 0 6px}
+.net-wait{grid-column:1/-1;text-align:center;font-family:var(--pixel);font-size:10px;color:#14131f;background:#f8f8f0;
+  border:3px solid #14131f;border-radius:9px;box-shadow:0 3px 0 #14131f;padding:16px 12px;line-height:1.6}
 
 /* ---------- accounts (login bar + modal) ---------- */
 .acctbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -879,7 +881,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v16 — online lobby</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v17 — online battles</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -1170,6 +1172,10 @@ async function aiTurn(){
 
 /* ---------- end turn / round ---------- */
 function endTurn(){
+  if(S.online){   // online: only the local trainer drafts their own 6
+    if(S.round>=6){ setTimeout(startItemPhase,500); return; }
+    S.round++; S.cur=0; setTimeout(beginTurn,450); return;
+  }
   if(S.cur===0){ S.cur=1; setTimeout(beginTurn,450); return; }
   // player 2 just finished -> next round
   S.cur=0;
@@ -1684,11 +1690,13 @@ function renderItemBag(){
     };
   });
   $("idone").onclick=()=>{
+    if(S.online){ submitOnlineTeam(); return; }                 // online: send my team, wait for opponent
     if(side===0 && !S.players[1].ai){ S.itemSide=1; S.pickMon=null; renderItemBag(); }
     else startBattle();
   };
   $("iskip").onclick=()=>{
     team.forEach((m,i)=>clearItem(side,i));
+    if(S.online){ submitOnlineTeam(); return; }
     if(side===0 && !S.players[1].ai){ S.itemSide=1; S.pickMon=null; renderItemBag(); }
     else startBattle();
   };
@@ -1750,12 +1758,18 @@ function renderBattle(){
       <div class="gb-text" id="bLog"></div>
       <div class="gb-menu" id="bMoves"></div>
       <div class="bctrl">
-        <button class="btn ghost" id="bSwitch">🔄 Switch</button>
-        <button class="btn ghost" id="bAuto">${bt.auto?"Auto: On":"Auto-battle"}</button>
+        ${bt.online
+          ? `<button class="btn ghost" id="bLeaveNet">Leave match</button>`
+          : `<button class="btn ghost" id="bSwitch">🔄 Switch</button>
+             <button class="btn ghost" id="bAuto">${bt.auto?"Auto: On":"Auto-battle"}</button>`}
       </div>
     </div>`;
   paintPanel(1); paintPanel(0);
   renderMoves(); renderLog(); updateCount(); paintWeather();
+  if(bt.online){
+    const lv=$("bLeaveNet"); if(lv) lv.onclick=()=>{ if(confirm("Leave the online match?")) leaveRoom(); };
+    return;
+  }
   $("bAuto").onclick=()=>{
     bt.auto=!bt.auto; $("bAuto").textContent=bt.auto?"Auto: On":"Auto-battle";
     bt.switching=false; renderMoves();
@@ -1854,7 +1868,13 @@ function renderMoves(){
   const bt=S.bt;
   if(bt.switching){ return renderSwitch(host); }
   const me=activeB(0);
-  const disabled = bt.busy||bt.over||bt.auto||bt.ai[0];
+  // online: wait state depends on whether we've already submitted this turn
+  const netWaiting = bt.online && ( (bt.host && bt.myAction) || (!bt.host && bt.pendingAction) );
+  const disabled = bt.busy||bt.over||bt.auto||bt.ai[0]|| (bt.online && netWaiting);
+  if(bt.online && netWaiting){
+    host.innerHTML=`<div class="net-wait">⏳ Waiting for the other trainer…</div>`;
+    return;
+  }
   host.innerHTML=me.moves.map((mv,i)=>{
     const col=TYPE_COLORS[mv.type]||"#777";
     const pri=mv.pri?` ↑${mv.pri}`:"";
@@ -1866,7 +1886,10 @@ function renderMoves(){
        <span class="mv-sub">${sub}</span>
      </button>`;
   }).join("");
-  if(!disabled) host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>doTurn({type:"move",idx:+b.dataset.i}));
+  if(!disabled) host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>{
+    if(bt.online) return bt.host?netHostPick(+b.dataset.i):netGuestPick(+b.dataset.i);
+    doTurn({type:"move",idx:+b.dataset.i});
+  });
 }
 function renderSwitch(host){
   const bt=S.bt, disabled=bt.busy||bt.over;
@@ -2150,7 +2173,7 @@ async function handleFaints(){
       if(next<0){ bt.over=true; bt.winner=1-side; return; }
       bt.active[side]=next;
       paintPanel(side);
-      const who = side===0 ? "You" : escapeHtml(bt.names[1]);
+      const who = bt.online ? escapeHtml(bt.names[side]) : (side===0 ? "You" : escapeHtml(bt.names[1]));
       pushLog(`<span class="muted">${who} sent out ${escapeHtml(activeB(side).mon.display)}!</span>`);
       beep(700,.08,"sine",.04);
       await wait(650);
@@ -2345,15 +2368,17 @@ function listenRoom(code){
     if(!S.net||S.net.code!==code) return;
     const room=snap.val();
     if(!room){ // room was deleted (host left)
-      if(S.net.role==="guest"){ S.netErr="The host closed the room."; }
-      S.net=null; if(S.screen==="online") render(); return;
+      if(S.net.role==="guest"){ alert("The other trainer left the match."); }
+      S.net=null; S.online=false; S.bt=null; S.screen="setup"; render(); return;
     }
     S.net.room=room;
+    netOnRoomUpdate(room);
     if(S.screen==="online") render();
   });
   S.net.ref=ref; S.net.cb=cb;
 }
 async function leaveRoom(){
+  S.online=false; S.bt=null;
   if(!S.net) { S.screen="setup"; render(); return; }
   const {code,role}=S.net; detachRoom();
   try{
@@ -2397,10 +2422,12 @@ function renderOnline(){
           <div class="on-player ${gn?"on":""}"><span class="dot ${gn?"on":""}"></span>${gn?escapeHtml(gn)+(net.role==="guest"?" (you)":""):"waiting for a friend…"}</div>
         </div>
         ${connected
-          ? `<div class="on-ready">✅ Both trainers connected!</div>
-             <p class="on-sub" style="text-align:center">Live battles are the very next update — your connection is working. 🎉</p>`
+          ? `<div class="on-ready">✅ Both trainers connected!</div>`
+             + (net.role==="host"
+                ? `<button class="btn" id="onStart" style="margin-top:6px">Start — draft &amp; battle!</button>`
+                : `<p class="on-sub" style="text-align:center">Waiting for <b>${escapeHtml(hn)}</b> to start the match…</p>`)
           : `<p class="on-sub" style="text-align:center">Tell your friend to tap <b>Play Online → Join a room</b> and enter this code.</p>`}
-        <button class="btn ghost" id="onLeave" style="margin-top:12px">Leave room</button>
+        <button class="btn ghost" id="onLeave" style="margin-top:10px">Leave room</button>
       </div>`;
   }
   app.innerHTML=`
@@ -2413,6 +2440,145 @@ function renderOnline(){
   const c=$("onCreate"); if(c) c.onclick=()=>{ S.netErr=""; createRoom(); };
   const j=$("onJoin"); if(j) j.onclick=()=>{ S.netErr=""; joinRoom($("onJoinCode").value); };
   const lv=$("onLeave"); if(lv) lv.onclick=leaveRoom;
+  const st=$("onStart"); if(st) st.onclick=()=>{ roomRef(net.code).child("phase").set("draft"); };
+}
+
+/* ============================================================
+   ONLINE — Step 2: live battle (host-authoritative, turn-synced)
+   ============================================================ */
+function compactTeam(team){ return team.map(m=>({name:m.name,id:m.id,display:m.display,types:m.types,
+  stats:m.stats,ability:m.ability||null,item:m.item||null,shiny:!!m.shiny,mega:!!m.mega,gmax:!!m.gmax,
+  variant:m.variant||"",baseStats:m.baseStats||null,bst:m.bst||0})); }
+const reviveMon=c=>({...c, types:c.types||[]});
+
+// The brain: react to room changes and drive the phases.
+function netOnRoomUpdate(room){
+  if(!room||!S.net) return;
+  const role=S.net.role;
+  if(room.phase==="draft" && !S.net.started){ S.net.started=true; startOnlineDraft(room); return; }
+  if(role==="host" && room.phase==="draft" && room.ready && room.ready.host && room.ready.guest && !S.net.battleInit){
+    S.net.battleInit=true; netHostInitBattle(room); return;
+  }
+  if(room.phase==="battle" || room.phase==="over"){
+    if(role==="guest" && !S.net.battleInit && room.state){ S.net.battleInit=true; netGuestInitBattle(room); return; }
+    if(role==="host" && S.bt && S.bt.online && !S.bt.over){
+      const ga=room.actions&&room.actions.guest;
+      if(ga && ga.turn===S.bt.turnNo && !S.bt.oppAction){ S.bt.oppAction={idx:ga.idx}; netHostTryResolve(); }
+    }
+    if(role==="guest" && S.bt && room.state && room.state.turnNo!==S.bt.turnNo){ netApplyState(room.state); }
+  }
+}
+async function startOnlineDraft(room){
+  S.online=true;
+  const meName=(S.net.role==="host"?room.host.name:(room.guest&&room.guest.name))||ME.name;
+  const oppName=(S.net.role==="host"?(room.guest&&room.guest.name):room.host.name)||"Opponent";
+  S.p1name=meName;
+  S.players=[{name:meName,ai:false,team:[],noGoRoundLeft:0},{name:oppName,ai:false,team:[],noGoRoundLeft:0}];
+  S.round=1; S.cur=0; S.screen="game";
+  if(!S.pokedex.length){ await loadData(); }
+  computePool(); render(); beginTurn();
+}
+async function submitOnlineTeam(){
+  const role=S.net.role;
+  S.screen="netwait";
+  $("app").innerHTML=`<div style="text-align:center;padding:70px 10px"><div class="spinner"></div>
+    <p class="loadline">Team sent! Waiting for the other trainer…</p></div>`;
+  try{
+    await roomRef(S.net.code).child("teams/"+role).set(compactTeam(S.players[0].team));
+    await roomRef(S.net.code).child("ready/"+role).set(true);
+  }catch(e){ alert("Could not send team: "+(e.message||"")); }
+}
+function netHostInitBattle(room){
+  const A=(room.teams.host||[]).map(reviveMon), B=(room.teams.guest||[]).map(reviveMon);
+  S.bt={ teams:[A.map(makeBattler), B.map(makeBattler)], names:[room.host.name, (room.guest&&room.guest.name)||"Rival"],
+         ai:[false,false], active:[0,0], log:[], busy:false, over:false, winner:-1,
+         online:true, host:true, weather:null, turnNo:1, myAction:null, oppAction:null, clawMsg:null };
+  S.screen="battle"; renderBattle();
+  pushLog(`<span class="muted">Online battle! ${escapeHtml(S.bt.names[0])} vs ${escapeHtml(S.bt.names[1])}.</span>`);
+  const order=eStat(activeB(0),"spe")>=eStat(activeB(1),"spe")?[0,1]:[1,0];
+  for(const s of order){ onEntry(s); }
+  paintPanel(0); paintPanel(1); paintWeather();
+  netWriteState(); setPromptOnline();
+}
+function netGuestInitBattle(room){
+  const A=(room.teams.host||[]).map(reviveMon), B=(room.teams.guest||[]).map(reviveMon);
+  S.bt={ teams:[B.map(makeBattler), A.map(makeBattler)], names:[(room.guest&&room.guest.name)||"You", room.host.name],
+         ai:[false,false], active:[0,0], log:[], busy:false, over:false, winner:-1,
+         online:true, host:false, weather:null, turnNo:0, pendingAction:false };
+  S.screen="battle"; renderBattle();
+  if(room.state) netApplyState(room.state);
+}
+function netSerialize(){
+  const bt=S.bt;
+  const sd=side=>({active:bt.active[side], mons:bt.teams[side].map(x=>({hp:Math.max(0,Math.ceil(x.hp)),
+      max:x.max, status:x.status||null, fainted:!!x.fainted, stages:x.stages||{}}))});
+  const over=!!bt.over;
+  return { host:sd(0), guest:sd(1), weather:bt.weather?bt.weather.kind:null,
+           log:(bt.log||[]).slice(-4), over, winner: over?(bt.winner===0?"host":"guest"):null, turnNo:bt.turnNo };
+}
+async function netWriteState(){
+  if(!S.net) return;
+  const st=netSerialize();
+  try{ await roomRef(S.net.code).update({ state:st, phase: st.over?"over":"battle", "actions/guest":null }); }catch(e){}
+}
+function netApplyState(state){
+  const bt=S.bt; if(!bt||!state) return;
+  const put=(side,sd)=>{ if(!sd) return; bt.active[side]=sd.active||0;
+    (sd.mons||[]).forEach((m,i)=>{ const b=bt.teams[side][i]; if(b){ b.hp=m.hp; b.max=m.max||b.max; b.status=m.status||null; b.fainted=!!m.fainted; if(m.stages)b.stages=m.stages; } }); };
+  put(0, state.guest); put(1, state.host);   // guest views itself (state.guest) as side 0
+  bt.weather = state.weather?{kind:state.weather,turns:5}:null;
+  bt.log = state.log||[]; bt.turnNo = state.turnNo; bt.pendingAction=false;
+  if(state.over){ bt.over=true; bt.winner=(state.winner==="guest")?0:1; }
+  paintPanel(0); paintPanel(1); renderLog(); paintWeather(); updateCount();
+  if(state.over){ netShowResult(); return; }
+  renderMoves();
+}
+function setPromptOnline(){ if(!S.bt||S.bt.over) return;
+  S.bt.log=[`What will <b>${escapeHtml(activeB(0).mon.display)}</b> do?`]; renderLog(); renderMoves(); }
+function netHostPick(idx){ const bt=S.bt; if(!bt||bt.busy||bt.over||bt.myAction) return; bt.myAction={idx}; renderMoves(); netHostTryResolve(); }
+async function netGuestPick(idx){ const bt=S.bt; if(!bt||bt.over||bt.pendingAction) return;
+  bt.pendingAction=true; renderMoves();
+  try{ await roomRef(S.net.code).child("actions/guest").set({turn:bt.turnNo, idx}); }
+  catch(e){ bt.pendingAction=false; renderMoves(); } }
+function netHostTryResolve(){ const bt=S.bt; if(!bt||!bt.host||bt.busy||bt.over) return;
+  if(bt.myAction && bt.oppAction){
+    const m0=activeB(0).moves[bt.myAction.idx]||activeB(0).moves[0];
+    const m1=activeB(1).moves[bt.oppAction.idx]||activeB(1).moves[0];
+    netHostResolveTurn(m0,m1);
+  } }
+async function netHostResolveTurn(m0,m1){
+  const bt=S.bt; if(bt.busy||bt.over) return; bt.busy=true; bt.myAction=null; bt.oppAction=null; renderMoves();
+  const you=activeB(0), foe=activeB(1);
+  const sYou=eStat(you,"spe"), sFoe=eStat(foe,"spe");
+  let first=sYou>sFoe?0:sYou<sFoe?1:(Math.random()<.5?0:1);
+  const p0=prio(you,m0), p1=prio(foe,m1);
+  if(p0!==p1){ first=p0>p1?0:1; }
+  else { const slow=1-first, slowB=slow===0?you:foe; if(slowB.item==="claw"&&Math.random()<0.2){ first=slow; bt.clawMsg=slow; } }
+  if(bt.clawMsg!=null){ pushLog(`<span class="eff">${escapeHtml((bt.clawMsg===0?you:foe).mon.display)}'s Quick Claw let it move first!</span>`); bt.clawMsg=null; await wait(650); }
+  const seq= first===0?[[0,you,foe,m0],[1,foe,you,m1]]:[[1,foe,you,m1],[0,you,foe,m0]];
+  for(const [aSide,atk,def,mv] of seq){ if(atk.fainted||def.fainted) continue;
+    const can=await canAct(aSide,atk); if(!can){ if(bt.over)break; continue; }
+    await performMove(aSide,atk,def,mv); if(bt.over) break; }
+  you.flinched=false; foe.flinched=false;
+  if(!bt.over) await endOfTurn();
+  if(!bt.over) await handleFaints();
+  bt.busy=false; bt.turnNo=(bt.turnNo||1)+1;
+  await netWriteState();
+  if(bt.over){ netShowResult(); return; }
+  paintPanel(0); paintPanel(1); updateCount(); setPromptOnline();
+}
+function netShowResult(){
+  const bt=S.bt; if(!bt||bt.resultShown) return; bt.resultShown=true;
+  const iWon=bt.winner===0; recordResult(iWon); sfxWin(); if(iWon) confetti();
+  $("app").innerHTML=`
+    <div class="results">
+      <div style="font-family:var(--display);color:var(--muted);letter-spacing:2px;font-size:13px">— ONLINE MATCH —</div>
+      <div class="winner">${iWon?"🏆 You win!":"You lost…"}</div>
+      <div style="color:var(--muted);font-size:14px">vs ${escapeHtml(bt.names[1])}</div>
+      ${ME?`<div style="color:var(--yellow);font-family:var(--mono);margin-top:8px">Record: ${ME.wins}W – ${ME.losses}L</div>`:""}
+      <button class="btn" id="netDone" style="margin-top:18px">Back to menu</button>
+    </div>`;
+  const d=$("netDone"); if(d) d.onclick=leaveRoom;
 }
 
 /* ---------- boot ---------- */
