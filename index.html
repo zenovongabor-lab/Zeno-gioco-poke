@@ -495,21 +495,28 @@ function hbBuildMove(mi){
   if(_PULSE.test(disp)) mv.pulse=1;
   const fx=CODE_FX[code]; if(fx) Object.assign(mv,fx(eff));
   if(typeof MOVEFX!=="undefined" && MOVEFX[disp]) Object.assign(mv,MOVEFX[disp]);
+  if(mv.cls==="status" && typeof STATMOVE!=="undefined" && STATMOVE[disp]) mv.smove=STATMOVE[disp];
   return mv;
 }
 // choose a 4-move battle set from a species HB level-up learnset
 function hbMovesFor(mon){
   const base=(typeof speciesOf==="function"&&speciesOf(mon.name))||mon.name.split("-")[0];
   const learn=HB_LEARN[hbNorm(base)]; if(!learn||!learn.length) return null;
-  const rng=seeded(mon.id||7), cand=[], seen=new Set();
-  for(const mi of learn){ const mv=hbBuildMove(mi); if(!mv||mv.power<=0||seen.has(mv.name)) continue; seen.add(mv.name); cand.push(mv); }
-  if(!cand.length) return null;
+  const rng=seeded(mon.id||7), dmg=[], stat=[], seen=new Set();
+  for(const mi of learn){ const mv=hbBuildMove(mi); if(!mv||seen.has(mv.name)) continue; seen.add(mv.name);
+    if(mv.power>0) dmg.push(mv); else if(mv.smove) stat.push(mv); }
+  if(!dmg.length && !stat.length) return null;
   const stab=t=>mon.types.includes(t)?1.5:1;
-  cand.forEach(mv=>mv._s=mv.power*stab(mv.type)*(0.9+rng()*0.2));
-  cand.sort((x,y)=>y._s-x._s);
-  const out=[],tc={};
-  for(const mv of cand){ if(out.length>=4)break; const n=tc[mv.type]||0; if(n>=2)continue; out.push(mv); tc[mv.type]=n+1; }
-  for(const mv of cand){ if(out.length>=4)break; if(out.indexOf(mv)<0) out.push(mv); }
+  dmg.forEach(mv=>mv._s=mv.power*stab(mv.type)*(0.9+rng()*0.2));
+  dmg.sort((x,y)=>y._s-x._s);
+  const out=[],tc={}, want=stat.length?3:4;   // leave a slot for one status move
+  for(const mv of dmg){ if(out.length>=want)break; const n=tc[mv.type]||0; if(n>=2)continue; out.push(mv); tc[mv.type]=n+1; }
+  for(const mv of dmg){ if(out.length>=want)break; if(out.indexOf(mv)<0) out.push(mv); }
+  if(stat.length){
+    const sc=mv=>{const s=mv.smove; let v=1; if(s.self||s.bellydrum)v=3; else if(s.status)v=2.5; else if(s.rest||s.heal)v=2; else if(s.foe)v=1.5; else if(s.weather)v=1.2; return v*(0.9+rng()*0.2);};
+    stat.sort((a,b)=>sc(b)-sc(a));
+    out.push(stat[0]);
+  }
   return out.slice(0,4).map(m=>{const c={...m}; delete c._s; return c;});
 }
 
@@ -801,7 +808,7 @@ function renderSetup(){
       <button class="btn" id="start">Start Duel</button>
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v12 — Hydro Bliss stats</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v13 — status moves</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -1282,6 +1289,36 @@ const NONCONTACT=new Set(["Earthquake","Bonemerang","High Horsepower","Rock Slid
 const isContact=mv=>mv.contact!=null?mv.contact:(mv.cls==="physical"&&!NONCONTACT.has(mv.name));
 const hasSecondary=mv=>!!(mv.status||mv.drop||mv.flinch);
 // real secondary effects + flags on our curated moves (HB-style)
+// ---- status (non-damaging) moves: self boosts / foe drops / status / heal / weather ----
+const STATMOVE={
+ // self stat boosts
+ "Swords Dance":{self:{atk:2}}, "Nasty Plot":{self:{spa:2}}, "Tail Glow":{self:{spa:3}},
+ "Dragon Dance":{self:{atk:1,spe:1}}, "Calm Mind":{self:{spa:1,spd:1}}, "Bulk Up":{self:{atk:1,def:1}},
+ "Agility":{self:{spe:2}}, "Rock Polish":{self:{spe:2}}, "Autotomize":{self:{spe:2}},
+ "Iron Defense":{self:{def:2}}, "Acid Armor":{self:{def:2}}, "Barrier":{self:{def:2}}, "Cotton Guard":{self:{def:3}},
+ "Amnesia":{self:{spd:2}}, "Quiver Dance":{self:{spa:1,spd:1,spe:1}},
+ "Shell Smash":{self:{atk:2,spa:2,spe:2,def:-1,spd:-1}}, "Cosmic Power":{self:{def:1,spd:1}}, "Defend Order":{self:{def:1,spd:1}},
+ "Coil":{self:{atk:1,def:1}}, "Hone Claws":{self:{atk:1}}, "Work Up":{self:{atk:1,spa:1}}, "Growth":{self:{atk:1,spa:1}},
+ "Sharpen":{self:{atk:1}}, "Meditate":{self:{atk:1}}, "Howl":{self:{atk:1}}, "Sword Dance":{self:{atk:2}},
+ "Belly Drum":{bellydrum:true},
+ // foe stat drops
+ "Growl":{foe:{atk:-1}}, "Leer":{foe:{def:-1}}, "Tail Whip":{foe:{def:-1}}, "Screech":{foe:{def:-2}},
+ "Charm":{foe:{atk:-2}}, "Feather Dance":{foe:{atk:-2}}, "Baby-Doll Eyes":{foe:{atk:-1}},
+ "Scary Face":{foe:{spe:-2}}, "String Shot":{foe:{spe:-1}}, "Cotton Spore":{foe:{spe:-2}},
+ "Metal Sound":{foe:{spd:-2}}, "Fake Tears":{foe:{spd:-2}},
+ // status conditions
+ "Thunder Wave":{status:"par"}, "Stun Spore":{status:"par"}, "Glare":{status:"par"},
+ "Toxic":{status:"tox"}, "Poison Powder":{status:"psn"}, "Poison Gas":{status:"psn"},
+ "Will-O-Wisp":{status:"brn"},
+ "Spore":{status:"slp"}, "Sleep Powder":{status:"slp"}, "Hypnosis":{status:"slp"}, "Sing":{status:"slp"},
+ "Lovely Kiss":{status:"slp"}, "Grass Whistle":{status:"slp"}, "Dark Void":{status:"slp"},
+ // healing
+ "Recover":{heal:.5}, "Soft-Boiled":{heal:.5}, "Slack Off":{heal:.5}, "Milk Drink":{heal:.5},
+ "Heal Order":{heal:.5}, "Roost":{heal:.5}, "Synthesis":{heal:.5}, "Moonlight":{heal:.5}, "Morning Sun":{heal:.5}, "Rest":{rest:true},
+ // weather
+ "Sunny Day":{weather:"sun"}, "Rain Dance":{weather:"rain"}, "Sandstorm":{weather:"sand"},
+ "Hail":{weather:"snow"}, "Snowscape":{weather:"snow"}, "Chilly Reception":{weather:"snow"},
+};
 const MOVEFX={
  "Body Slam":{status:"par",chance:.3}, "Double-Edge":{recoil:.33}, "Volt Tackle":{recoil:.33,status:"par",chance:.1},
  "Fire Punch":{punch:1,status:"brn",chance:.1}, "Thunder Punch":{punch:1,status:"par",chance:.1}, "Ice Punch":{punch:1,status:"frz",chance:.1},
@@ -1749,9 +1786,12 @@ function renderMoves(){
   host.innerHTML=me.moves.map((mv,i)=>{
     const col=TYPE_COLORS[mv.type]||"#777";
     const pri=mv.pri?` ↑${mv.pri}`:"";
+    const sub = mv.cls==="status"
+      ? `${mv.type.toUpperCase()} · STATUS${pri}`
+      : `${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}${pri}`;
     return `<button class="mvb" data-i="${i}" ${disabled?"disabled":""}>
        <span class="mv-dot" style="background:${col}"></span>${mv.name}
-       <span class="mv-sub">${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}${pri}</span>
+       <span class="mv-sub">${sub}</span>
      </button>`;
   }).join("");
   if(!disabled) host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>doTurn({type:"move",idx:+b.dataset.i}));
@@ -1885,6 +1925,23 @@ async function performMove(side,atk,def,mv){
   pushLog(`${escapeHtml(atk.mon.display)} used <b>${mv.name}</b>!`);
   beep(side===0?520:300,.05,"square",.04);
   await wait(320);
+
+  // ---- status (non-damaging) moves ----
+  if(mv.cls==="status"){
+    const sm=mv.smove;
+    if(!sm){ pushLog(`<span class="muted">But nothing happened…</span>`); await wait(500); return; }
+    const targeted=!!(sm.foe||sm.status), acc=mv.acc==null?100:mv.acc;
+    if(targeted && acc>0 && Math.random()*100>=acc){ pushLog(`<span class="muted">But it missed!</span>`); beep(180,.1,"square",.03); await wait(600); return; }
+    beep(660,.06,"triangle",.04);
+    if(sm.self){ for(const k in sm.self) boost(atk,k,sm.self[k]); await wait(450); }
+    if(sm.foe){ for(const k in sm.foe) lower(def,k,sm.foe[k]); await wait(450); }
+    if(sm.weather){ S.bt.weather={kind:sm.weather,turns:5}; const lbl={rain:"It started to rain!",sun:"The sunlight turned harsh!",sand:"A sandstorm kicked up!",snow:"It started to snow!"}[sm.weather]; pushLog(`<span class="eff">${lbl}</span>`); paintWeather(); await wait(500); }
+    if(sm.heal){ if(atk.hp>=atk.max){ pushLog(`<span class="muted">But its HP is full!</span>`); } else { atk.hp=Math.min(atk.max,atk.hp+Math.round(atk.max*sm.heal)); setHp(side,true); pushLog(`<span class="eff">${escapeHtml(atk.mon.display)} regained health!</span>`); beep(880,.08,"triangle",.05); } await wait(500); }
+    if(sm.rest){ atk.hp=atk.max; atk.status="slp"; atk.sleepT=2; setHp(side,true); setStatusUI(side); pushLog(`<span class="eff">${escapeHtml(atk.mon.display)} slept and became healthy!</span>`); await wait(500); }
+    if(sm.bellydrum){ if(atk.hp>Math.floor(atk.max/2)){ atk.hp-=Math.floor(atk.max/2); setHp(side,true); atk.stages.atk=6; pushLog(`<span class="eff">${escapeHtml(atk.mon.display)} maxed its Attack!</span>`); } else pushLog(`<span class="muted">But it failed!</span>`); await wait(500); }
+    if(sm.status){ const ok=inflict(def,sm.status); if(!ok){ pushLog(`<span class="muted">But it failed!</span>`); await wait(400); } }
+    return;
+  }
 
   // ---- absorbing / immunity abilities ----
   if(mv.power>0){
