@@ -499,6 +499,15 @@ const LEGENDARY = new Set([
   "gouging-fire","raging-bolt","iron-boulder","iron-crown"
 ]);
 
+const MYTHICAL = new Set([
+  "mew","celebi","jirachi","deoxys",
+  "phione","manaphy","darkrai","shaymin","arceus",
+  "victini","keldeo","meloetta","genesect",
+  "diancie","hoopa","volcanion",
+  "magearna","marshadow","zeraora","meltan","melmetal",
+  "zarude","pecharunt"
+]);
+
 // Small offline safety net (used only if the live Pokédex can't load)
 const FALLBACK = [
   ["bulbasaur",1,318,["grass","poison"]],["charmander",4,309,["fire"]],["charizard",6,534,["fire","flying"]],
@@ -590,7 +599,7 @@ function hbMovesFor(mon){
 const S = {
   screen:"setup",
   p2ai:true, p2mode:"ai", noGoPerRound:1, drawStyle:"fair", shinyRate:0.08, sound:true, battleMode:true,
-  region:0, noLegendaries:false,
+  region:0, noLegendaries:false, legendaryOnly:false, mythicalOnly:false, statMax:null, statMin:null,
   p1name:"Player 1", p2name:"AI Rival",
   players:null, round:1, cur:0,
   balls:[], activeIdx:null, busy:false,
@@ -680,18 +689,18 @@ function speciesOf(name){
   }
   return null;
 }
-// Tag every drawable entry with its region (generation) + legendary flag.
+// Tag every drawable entry with its region (generation) + legendary + mythical flags + bst.
 function buildMeta(){
   S.meta={};
   if(S.apiOk && S.speciesSet){
     for(const n of S.pokedex){
       const sp=speciesOf(n);
       const id=sp?S.speciesId[sp]:0;
-      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false};
+      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false, mythical: sp?MYTHICAL.has(sp):false};
     }
   } else {
     for(const f of FALLBACK){
-      S.meta[f[0]]={gen:genFromId(f[1]), legendary:LEGENDARY.has(f[0])};
+      S.meta[f[0]]={gen:genFromId(f[1]), legendary:LEGENDARY.has(f[0]), mythical:MYTHICAL.has(f[0]), bst:f[2]};
     }
   }
 }
@@ -707,6 +716,10 @@ function computePool(){
     if(!m) return S.region===0;
     if(S.region!==0 && m.gen!==S.region) return false;
     if(S.noLegendaries && m.legendary) return false;
+    if(S.legendaryOnly && !m.legendary) return false;
+    if(S.mythicalOnly && !m.mythical) return false;
+    if(S.statMax!==null && m.bst && m.bst>S.statMax) return false;
+    if(S.statMin!==null && m.bst && m.bst<S.statMin) return false;
     return true;
   });
   if(!S.pool.length) S.pool=S.pokedex.slice();
@@ -866,8 +879,19 @@ function renderSetup(){
       <div class="field">
         <label>Legendaries <span class="hint">— include the big rare ones?</span></label>
         <div class="choices" id="c-lg">
-          <div class="chip ${!S.noLegendaries?"on":""}" data-v="inc">Include<small>Legends in play</small></div>
+          <div class="chip ${!S.noLegendaries&&!S.legendaryOnly&&!S.mythicalOnly?"on":""}" data-v="inc">Include<small>Legends in play</small></div>
           <div class="chip ${S.noLegendaries?"on":""}" data-v="exc">Exclude<small>Fairer drafts</small></div>
+          <div class="chip ${S.legendaryOnly?"on":""}" data-v="leg">Legends Only<small>Only the rare ones</small></div>
+          <div class="chip ${S.mythicalOnly?"on":""}" data-v="myth">Mythicals Only<small>Event-exclusive Pokémon</small></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Stat total limits <span class="hint">— restrict by base stats</span></label>
+        <div class="choices" id="c-st">
+          <div class="chip ${S.statMax===null&&S.statMin===null?"on":""}" data-v="any">Any Stats<small>All Pokémon allowed</small></div>
+          <div class="chip ${S.statMax===300?"on":""}" data-v="max300">≤ 300 Stats<small>Weak Pokémon only</small></div>
+          <div class="chip ${S.statMin===500?"on":""}" data-v="min500">≥ 500 Stats<small>Strong Pokémon only</small></div>
         </div>
       </div>
 
@@ -896,7 +920,8 @@ function renderSetup(){
   bindChips("c-end",v=>{S.battleMode=(v==="battle");});
   bindChips("c-ds",v=>{S.drawStyle=v; updatePreview();});
   bindChips("c-rg",v=>{S.region=+v; updatePreview();});
-  bindChips("c-lg",v=>{S.noLegendaries=(v==="exc"); updatePreview();});
+  bindChips("c-lg",v=>{S.noLegendaries=(v==="exc"); S.legendaryOnly=(v==="leg"); S.mythicalOnly=(v==="myth"); updatePreview();});
+  bindChips("c-st",v=>{S.statMax=(v==="max300"?300:null); S.statMin=(v==="min500"?500:null); updatePreview();});
 
   const ll=$("loadline");
   if(!Object.keys(S.meta).length){
@@ -2128,6 +2153,13 @@ async function performMove(side,atk,def,mv){
   }
   if(mv.selfdrop){ for(const k in mv.selfdrop) boost(atk,k,mv.selfdrop[k]); }
 
+  // Self Destruct / Explosion - user faints
+  if(["Self-Destruct","Explosion"].includes(mv.name) && !has(atk,"MAGICGUARD")){
+    atk.hp=0; atk.fainted=true; setHp(side,true);
+    const sa=$("spr"+side); if(sa) sa.classList.add("fainted");
+    pushLog(`<span class="muted">${escapeHtml(atk.mon.display)} used ${mv.name} and fainted!</span>`); await wait(600);
+  }
+
   // Sitrus Berry
   if(def.hp>0 && def.item==="sitrus" && !def.sitrusUsed && def.hp<=def.max/2){
     def.sitrusUsed=true; def.hp=Math.min(def.max,def.hp+Math.round(def.max/4)); setHp(defSide,true);
@@ -2199,7 +2231,7 @@ async function endOfTurn(){
   // ---- status + items ----
   for(const side of [0,1]){
     const b=activeB(side); if(b.fainted) continue;
-    if(b.item==="lefto") await heal(b,side,Math.round(b.max/6),`${escapeHtml(b.mon.display)} restored a little HP with Leftovers.`);
+    if(b.item==="lefto") await heal(b,side,Math.round(b.max/16),`${escapeHtml(b.mon.display)} restored a little HP with Leftovers.`);
     if(b.status==="brn") await hurt(b,side,Math.round(b.max/16),`${escapeHtml(b.mon.display)} is hurt by its burn!`);
     else if(b.status==="psn"){ if(has(b,"POISONHEAL")) await heal(b,side,Math.round(b.max/8),`${escapeHtml(b.mon.display)} is healed by Poison Heal.`); else await hurt(b,side,Math.round(b.max/8),`${escapeHtml(b.mon.display)} is hurt by poison!`); }
     else if(b.status==="tox"){ if(has(b,"POISONHEAL")) await heal(b,side,Math.round(b.max/8),`${escapeHtml(b.mon.display)} is healed by Poison Heal.`); else { await hurt(b,side,Math.round(b.max*b.toxicN/16),`${escapeHtml(b.mon.display)} is hurt by poison!`); b.toxicN=Math.min(15,b.toxicN+1); } }
