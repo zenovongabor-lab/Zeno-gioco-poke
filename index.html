@@ -1430,7 +1430,7 @@ function assignMoves(mon){
 const STAGE=n=>n>=0?(2+n)/2:2/(2-n);
 const abName=bl=>(bl&&bl.ability&&HB_AB[bl.ability])?HB_AB[bl.ability].n:null;
 const has=(bl,a)=>!!(bl&&bl.ability===a);
-const STATUS_NAME={brn:"burned",psn:"poisoned",tox:"badly poisoned",par:"paralyzed",slp:"asleep",frz:"frozen"};
+const STATUS_NAME={brn:"burned",psn:"poisoned",tox:"badly poisoned",par:"paralyzed",slp:"asleep",frz:"frozen",conf:"confused"};
 // physical moves make contact except these
 const NONCONTACT=new Set(["Earthquake","Bonemerang","High Horsepower","Rock Slide","Stone Edge","Power Gem","Scorching Sands","Earth Power","Precipice Blades","Scale Shot","Pin Missile","Meteor Beam"]);
 const isContact=mv=>mv.contact!=null?mv.contact:(mv.cls==="physical"&&!NONCONTACT.has(mv.name));
@@ -1569,8 +1569,14 @@ function calcDamage(atk,def,mv){
   if(eff>0) d=Math.max(1,d);
   return {d,eff,crit:crit>1};
 }
-function bestMove(a,d){ let best=a.moves[0],bd=-1;
-  for(const mv of a.moves){ const A=mv.cls==="physical"?a.b.atk:a.b.spa, D=mv.cls==="physical"?d.b.def:d.b.spd;
+function bestMove(a,d){
+  // Force Outrage if locked in
+  if(a.outrageCount>0) return a.moves.find(m=>m.name==="Outrage")||a.moves[0];
+
+  let best=a.moves[0],bd=-1;
+  for(const mv of a.moves){
+    if(mv.pp<=0) continue; // Skip moves with no PP
+    const A=mv.cls==="physical"?a.b.atk:a.b.spa, D=mv.cls==="physical"?d.b.def:d.b.spd;
     const base=Math.floor(Math.floor((2*LV/5+2)*mv.power*A/D)/50)+2;
     const acc=(mv.acc==null||mv.acc<=0)?100:mv.acc;
     const est=base*(a.mon.types.includes(mv.type)?1.5:1)*typeEff(mv.type,d.mon.types)*(acc/100);
@@ -1601,11 +1607,18 @@ function makeBattler(mon){
   let b=battleStats(src);
   if(item==="bulb") b={...b,atk:Math.round(b.atk*1.2),spa:Math.round(b.spa*1.2),maxHp:Math.max(1,Math.round(b.maxHp*0.9))};
   if(isGmax)        b={...b,maxHp:Math.round(b.maxHp*1.5)};
-  const moves=assignMoves(mon).map(mv=>({...mv,...(MOVEFX[mv.name]||{})}));
+  const moves=assignMoves(mon).map(mv=>{
+    const fx=MOVEFX[mv.name]||{};
+    const basePP=(mv.power||0)>100?5:(mv.power||0)>70?10:(mv.cls==="status"?20:15);
+    const ppMap={"Hyper Beam":5,"Explosion":5,"Self-Destruct":5};
+    const pp=ppMap[mv.name]||basePP;
+    return {...mv,...fx,pp,maxPp:pp};
+  });
   return {mon,b,item,isMega,isGmax,sashUsed:false,sitrusUsed:false,
           ability:mon.ability||null,
           stages:{atk:0,def:0,spa:0,spd:0,spe:0},
-          status:null,toxicN:0,sleepT:0,flashfire:false,entered:false,flinched:false,
+          status:null,toxicN:0,sleepT:0,flashfire:false,entered:false,flinched:false,confusionTurns:0,
+          mustRecharge:false,outrageCount:0,
           moves,hp:b.maxHp,max:b.maxHp,fainted:false};
 }
 /* ---- stat-stage changes, status infliction, ability entry/KO hooks ---- */
@@ -1635,6 +1648,7 @@ function canStatus(bl,st){
   const T=bl.mon.types;
   if(st==="brn"&&(T.includes("fire")||has(bl,"WATERVEIL")||has(bl,"WATERBUBBLE")||has(bl,"THERMALEXCHANGE"))) return false;
   if(st==="par"&&(T.includes("electric")||has(bl,"LIMBER"))) return false;
+  if(st==="conf"&&has(bl,"OWNTEMPO")) return false;
   if((st==="psn"||st==="tox")&&((T.includes("poison")||T.includes("steel"))&&!has(bl,"CORROSION")||has(bl,"IMMUNITY")||has(bl,"PASTELVEIL"))) return false;
   if(st==="frz"&&(T.includes("ice")||has(bl,"MAGMAARMOR"))) return false;
   if(st==="slp"&&(has(bl,"INSOMNIA")||has(bl,"VITALSPIRIT")||has(bl,"SWEETVEIL"))) return false;
@@ -1959,10 +1973,12 @@ function renderMoves(){
   host.innerHTML=me.moves.map((mv,i)=>{
     const col=TYPE_COLORS[mv.type]||"#777";
     const pri=mv.pri?` ↑${mv.pri}`:"";
+    const noPp=mv.pp<=0;
+    const lockedOutrage=me.outrageCount>0 && mv.name!=="Outrage";
     const sub = mv.cls==="status"
-      ? `${mv.type.toUpperCase()} · STATUS${pri}`
-      : `${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}${pri}`;
-    return `<button class="mvb" data-i="${i}" ${disabled?"disabled":""}>
+      ? `${mv.type.toUpperCase()} · STATUS${pri} · PP ${mv.pp}/${mv.maxPp}${me.outrageCount>0?" (Locked into Outrage)":""}`
+      : `${mv.type.toUpperCase()} · ${mv.cls==="physical"?"PHYS":"SPEC"} ${mv.power}${pri} · PP ${mv.pp}/${mv.maxPp}${me.outrageCount>0?" (Locked into Outrage)":""}`;
+    return `<button class="mvb" data-i="${i}" ${(disabled||noPp||lockedOutrage)?"disabled":""} style="${(noPp||lockedOutrage)?"opacity:.3;":""}">
        <span class="mv-dot" style="background:${col}"></span>${mv.name}
        <span class="mv-sub">${sub}</span>
      </button>`;
@@ -2077,6 +2093,7 @@ function prio(bl,mv){
 }
 // status / flinch gate before a Pokémon acts
 async function canAct(side,bl){
+  if(bl.mustRecharge){ bl.mustRecharge=false; pushLog(`<span class="muted">${escapeHtml(bl.mon.display)} is recharging!</span>`); await wait(600); return false; }
   if(bl.flinched){ bl.flinched=false; pushLog(`<span class="muted">${escapeHtml(bl.mon.display)} flinched and couldn't move!</span>`); await wait(600); return false; }
   if(bl.status==="frz"){
     if(Math.random()<0.2){ bl.status=null; setStatusUI(side); pushLog(`<span class="eff">${escapeHtml(bl.mon.display)} thawed out!</span>`); await wait(600); }
@@ -2088,6 +2105,20 @@ async function canAct(side,bl){
     else { pushLog(`<span class="muted">${escapeHtml(bl.mon.display)} is fast asleep.</span>`); await wait(600); return false; }
   }
   if(bl.status==="par" && Math.random()<0.25){ pushLog(`<span class="muted">${escapeHtml(bl.mon.display)} is paralyzed! It can't move!</span>`); await wait(600); return false; }
+  if(bl.status==="conf"){
+    if(!bl.confusionTurns) bl.confusionTurns=1+Math.floor(Math.random()*4);
+    bl.confusionTurns--;
+    if(bl.confusionTurns<=0){ bl.status=null; bl.confusionTurns=0; setStatusUI(side); pushLog(`<span class="eff">${escapeHtml(bl.mon.display)} snapped out of confusion!</span>`); await wait(600); }
+    else if(Math.random()<0.5){
+      const dmg=Math.max(1,Math.floor(((2*LV/5+2)*40*eStat(bl,"atk")/eStat(bl,"def"))/50)+2));
+      bl.hp=Math.max(0,bl.hp-dmg);
+      setHp(side,true);
+      pushLog(`<span class="muted">${escapeHtml(bl.mon.display)} hurt itself in confusion!</span>`);
+      await wait(600);
+      if(bl.hp<=0){ bl.fainted=true; const sd=$("spr"+side); if(sd) sd.classList.add("fainted"); pushLog(`<span class="muted">${escapeHtml(bl.mon.display)} fainted!</span>`); await wait(600); }
+      return false;
+    }
+  }
   return true;
 }
 // show a floating ability banner, then run entry effects
@@ -2111,6 +2142,15 @@ async function performMove(side,atk,def,mv){
   pushLog(`${escapeHtml(atk.mon.display)} used <b>${mv.name}</b>!`);
   beep(side===0?520:300,.05,"square",.04);
   await wait(320);
+
+  // Decrement PP
+  if(mv.pp>0) mv.pp--;
+
+  // Hyper Beam: mark that user must recharge next turn
+  if(mv.name==="Hyper Beam") atk.mustRecharge=true;
+
+  // Outrage: lock into move for 2-3 turns
+  if(mv.name==="Outrage" && atk.outrageCount===0) atk.outrageCount=2+Math.floor(Math.random()*2);
 
   // ---- status (non-damaging) moves ----
   if(mv.cls==="status"){
@@ -2207,6 +2247,17 @@ async function performMove(side,atk,def,mv){
     atk.hp=0; atk.fainted=true; setHp(side,true);
     const sa=$("spr"+side); if(sa) sa.classList.add("fainted");
     pushLog(`<span class="muted">${escapeHtml(atk.mon.display)} fainted!</span>`); await wait(600);
+  }
+
+  // Outrage: decrement counter and confuse when done
+  if(mv.name==="Outrage" && atk.outrageCount>0){
+    atk.outrageCount--;
+    if(atk.outrageCount===0 && !atk.status){
+      atk.status="conf"; atk.confusionTurns=1+Math.floor(Math.random()*4);
+      setStatusUI(side);
+      pushLog(`<span class="eff">${escapeHtml(atk.mon.display)} became confused!</span>`);
+      await wait(600);
+    }
   }
 }
 async function applyOnHit(side,atk,def,mv){
@@ -2665,7 +2716,7 @@ function netHostTryResolve(){ const bt=S.bt; if(!bt||!bt.host||bt.busy||bt.over)
   if(bt.myAction && bt.oppAction){ netHostResolveTurn(bt.myAction, bt.oppAction); } }
 function netDoSwitch(side,to){
   const bt=S.bt, out=activeB(side); if(to==null||to===bt.active[side]||bt.teams[side][to].fainted) return false;
-  out.entered=false; out.flashfire=false; bt.active[side]=to;
+  out.entered=false; out.flashfire=false; out.status=(out.status==="conf"?null:out.status); out.confusionTurns=0; bt.active[side]=to;
   pushLog(`<span class="muted">${escapeHtml(bt.names[side])} sent out ${escapeHtml(activeB(side).mon.display)}!</span>`);
   return true;
 }
