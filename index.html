@@ -887,7 +887,7 @@ function renderSetup(){
         : `<button class="btn" id="start">Start Duel</button>` }
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v18 — online setup</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v19 — online switch &amp; rematch</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -1792,7 +1792,8 @@ function renderBattle(){
       <div class="gb-menu" id="bMoves"></div>
       <div class="bctrl">
         ${bt.online
-          ? `<button class="btn ghost" id="bLeaveNet">Leave match</button>`
+          ? `<button class="btn ghost" id="bSwitch">🔄 Switch</button>
+             <button class="btn ghost" id="bLeaveNet">Leave</button>`
           : `<button class="btn ghost" id="bSwitch">🔄 Switch</button>
              <button class="btn ghost" id="bAuto">${bt.auto?"Auto: On":"Auto-battle"}</button>`}
       </div>
@@ -1801,6 +1802,11 @@ function renderBattle(){
   renderMoves(); renderLog(); updateCount(); paintWeather();
   if(bt.online){
     const lv=$("bLeaveNet"); if(lv) lv.onclick=()=>{ if(confirm("Leave the online match?")) leaveRoom(); };
+    const sw=$("bSwitch"); if(sw) sw.onclick=()=>{
+      const waiting=(bt.host&&bt.myAction)||(!bt.host&&bt.pendingAction);
+      if(bt.busy||bt.over||waiting) return;
+      bt.switching=!bt.switching; renderMoves();
+    };
     return;
   }
   $("bAuto").onclick=()=>{
@@ -1942,7 +1948,9 @@ function renderSwitch(host){
   host.querySelectorAll(".mvb").forEach(b=>b.onclick=()=>{
     const v=b.dataset.sw;
     if(v==="back"){ bt.switching=false; renderMoves(); return; }
-    bt.switching=false; doTurn({type:"switch",to:+v});
+    bt.switching=false;
+    if(bt.online){ const act={type:"switch",to:+v}; return bt.host?netHostPick(act):netGuestPick(act); }
+    doTurn({type:"switch",to:+v});
   });
 }
 function shade(hex){ // darken a hex color for gradient
@@ -2487,7 +2495,9 @@ const reviveMon=c=>({...c, types:c.types||[]});
 // The brain: react to room changes and drive the phases.
 function netOnRoomUpdate(room){
   if(!room||!S.net) return;
-  const role=S.net.role;
+  const role=S.net.role, prev=S.net.phase; S.net.phase=room.phase;
+  // entering a fresh draft (first match OR a rematch) resets per-match flags
+  if(room.phase==="draft" && prev!=="draft"){ S.net.started=false; S.net.battleInit=false; S.bt=null; }
   if(room.phase==="draft" && !S.net.started){ S.net.started=true; startOnlineDraft(room); return; }
   if(role==="host" && room.phase==="draft" && room.ready && room.ready.host && room.ready.guest && !S.net.battleInit){
     S.net.battleInit=true; netHostInitBattle(room); return;
@@ -2496,10 +2506,25 @@ function netOnRoomUpdate(room){
     if(role==="guest" && !S.net.battleInit && room.state){ S.net.battleInit=true; netGuestInitBattle(room); return; }
     if(role==="host" && S.bt && S.bt.online && !S.bt.over){
       const ga=room.actions&&room.actions.guest;
-      if(ga && ga.turn===S.bt.turnNo && !S.bt.oppAction){ S.bt.oppAction={idx:ga.idx}; netHostTryResolve(); }
+      if(ga && ga.turn===S.bt.turnNo && !S.bt.oppAction){
+        S.bt.oppAction={type:ga.type||"move", idx:ga.idx, to:ga.to}; netHostTryResolve();
+      }
     }
     if(role==="guest" && S.bt && room.state && room.state.turnNo!==S.bt.turnNo){ netApplyState(room.state); }
   }
+  // rematch: when both trainers ask, the host restarts the room into a new draft
+  if(room.phase==="over" && role==="host" && room.rematch && room.rematch.host && room.rematch.guest && !S.net.rematching){
+    S.net.rematching=true; netHostRematch();
+  }
+}
+async function netHostRematch(){
+  try{ await roomRef(S.net.code).update({ phase:"draft", teams:null, ready:null, state:null, actions:null, rematch:null }); }catch(e){}
+  S.net.rematching=false;
+}
+async function netAskRematch(){
+  if(!S.net) return;
+  try{ await roomRef(S.net.code).child("rematch/"+S.net.role).set(true); }catch(e){}
+  const b=$("netRematch"); if(b){ b.disabled=true; b.textContent="Waiting for opponent…"; }
 }
 async function startOnlineDraft(room){
   S.online=true;
@@ -2573,31 +2598,49 @@ function netApplyState(state){
 }
 function setPromptOnline(){ if(!S.bt||S.bt.over) return;
   S.bt.log=[`What will <b>${escapeHtml(activeB(0).mon.display)}</b> do?`]; renderLog(); renderMoves(); }
-function netHostPick(idx){ const bt=S.bt; if(!bt||bt.busy||bt.over||bt.myAction) return; bt.myAction={idx}; renderMoves(); netHostTryResolve(); }
-async function netGuestPick(idx){ const bt=S.bt; if(!bt||bt.over||bt.pendingAction) return;
+const normAct=a=>(typeof a==="number")?{type:"move",idx:a}:a;
+function netHostPick(a){ const bt=S.bt; if(!bt||bt.busy||bt.over||bt.myAction) return; bt.myAction=normAct(a); renderMoves(); netHostTryResolve(); }
+async function netGuestPick(a){ const bt=S.bt; if(!bt||bt.over||bt.pendingAction) return;
   bt.pendingAction=true; renderMoves();
-  try{ await roomRef(S.net.code).child("actions/guest").set({turn:bt.turnNo, idx}); }
+  try{ await roomRef(S.net.code).child("actions/guest").set({turn:bt.turnNo, ...normAct(a)}); }
   catch(e){ bt.pendingAction=false; renderMoves(); } }
 function netHostTryResolve(){ const bt=S.bt; if(!bt||!bt.host||bt.busy||bt.over) return;
-  if(bt.myAction && bt.oppAction){
-    const m0=activeB(0).moves[bt.myAction.idx]||activeB(0).moves[0];
-    const m1=activeB(1).moves[bt.oppAction.idx]||activeB(1).moves[0];
-    netHostResolveTurn(m0,m1);
-  } }
-async function netHostResolveTurn(m0,m1){
+  if(bt.myAction && bt.oppAction){ netHostResolveTurn(bt.myAction, bt.oppAction); } }
+function netDoSwitch(side,to){
+  const bt=S.bt, out=activeB(side); if(to==null||to===bt.active[side]||bt.teams[side][to].fainted) return false;
+  out.entered=false; out.flashfire=false; bt.active[side]=to;
+  pushLog(`<span class="muted">${escapeHtml(bt.names[side])} sent out ${escapeHtml(activeB(side).mon.display)}!</span>`);
+  return true;
+}
+async function netHostResolveTurn(a0,a1){
   const bt=S.bt; if(bt.busy||bt.over) return; bt.busy=true; bt.myAction=null; bt.oppAction=null; renderMoves();
+  // 1) switches resolve first (both), entry abilities in speed order
+  const switched=[];
+  if(a0 && a0.type==="switch" && netDoSwitch(0,a0.to)) switched.push(0);
+  if(a1 && a1.type==="switch" && netDoSwitch(1,a1.to)) switched.push(1);
+  if(switched.length){ paintPanel(0); paintPanel(1); await wait(650);
+    const ord = switched.length===2 ? (eStat(activeB(0),"spe")>=eStat(activeB(1),"spe")?[0,1]:[1,0]) : switched;
+    for(const s of ord){ await onEntryAnim(s); }
+  }
+  // 2) attacks — only the sides that chose a move
   const you=activeB(0), foe=activeB(1);
-  const sYou=eStat(you,"spe"), sFoe=eStat(foe,"spe");
-  let first=sYou>sFoe?0:sYou<sFoe?1:(Math.random()<.5?0:1);
-  const p0=prio(you,m0), p1=prio(foe,m1);
-  if(p0!==p1){ first=p0>p1?0:1; }
-  else { const slow=1-first, slowB=slow===0?you:foe; if(slowB.item==="claw"&&Math.random()<0.2){ first=slow; bt.clawMsg=slow; } }
-  if(bt.clawMsg!=null){ pushLog(`<span class="eff">${escapeHtml((bt.clawMsg===0?you:foe).mon.display)}'s Quick Claw let it move first!</span>`); bt.clawMsg=null; await wait(650); }
-  const seq= first===0?[[0,you,foe,m0],[1,foe,you,m1]]:[[1,foe,you,m1],[0,you,foe,m0]];
-  for(const [aSide,atk,def,mv] of seq){ if(atk.fainted||def.fainted) continue;
-    const can=await canAct(aSide,atk); if(!can){ if(bt.over)break; continue; }
-    await performMove(aSide,atk,def,mv); if(bt.over) break; }
-  you.flinched=false; foe.flinched=false;
+  const m0 = (a0&&a0.type==="move") ? (you.moves[a0.idx]||you.moves[0]) : null;
+  const m1 = (a1&&a1.type==="move") ? (foe.moves[a1.idx]||foe.moves[0]) : null;
+  let movers=[];
+  if(m0) movers.push({side:0,atk:you,def:foe,mv:m0});
+  if(m1) movers.push({side:1,atk:foe,def:you,mv:m1});
+  if(movers.length===2){
+    const A=movers[0],B=movers[1], pA=prio(A.atk,A.mv), pB=prio(B.atk,B.mv);
+    let bFirst;
+    if(pA!==pB) bFirst=pB>pA;
+    else { const sA=eStat(A.atk,"spe"), sB=eStat(B.atk,"spe"); bFirst=sB>sA||(sB===sA&&Math.random()<.5);
+      if(!bFirst && A.atk.item==="claw" && Math.random()<0.2){} else if(bFirst && B.atk.item==="claw"){} }
+    if(bFirst) movers.reverse();
+  }
+  for(const mo of movers){ if(mo.atk.fainted||mo.def.fainted) continue;
+    const can=await canAct(mo.side,mo.atk); if(!can){ if(bt.over)break; continue; }
+    await performMove(mo.side,mo.atk,mo.def,mo.mv); if(bt.over) break; }
+  activeB(0).flinched=false; activeB(1).flinched=false;
   if(!bt.over) await endOfTurn();
   if(!bt.over) await handleFaints();
   bt.busy=false; bt.turnNo=(bt.turnNo||1)+1;
@@ -2614,8 +2657,10 @@ function netShowResult(){
       <div class="winner">${iWon?"🏆 You win!":"You lost…"}</div>
       <div style="color:var(--muted);font-size:14px">vs ${escapeHtml(bt.names[1])}</div>
       ${ME?`<div style="color:var(--yellow);font-family:var(--mono);margin-top:8px">Record: ${ME.wins}W – ${ME.losses}L</div>`:""}
-      <button class="btn" id="netDone" style="margin-top:18px">Back to menu</button>
+      <button class="btn" id="netRematch" style="margin-top:18px">🔁 Rematch</button>
+      <button class="btn ghost" id="netDone" style="margin-top:10px">Back to menu</button>
     </div>`;
+  const r=$("netRematch"); if(r) r.onclick=netAskRematch;
   const d=$("netDone"); if(d) d.onclick=leaveRoom;
 }
 
