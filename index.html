@@ -589,7 +589,7 @@ function hbMovesFor(mon){
 /* ---------------- state ---------------- */
 const S = {
   screen:"setup",
-  p2ai:true, noGoPerRound:1, drawStyle:"fair", shinyRate:0.08, sound:true, battleMode:true,
+  p2ai:true, p2mode:"ai", noGoPerRound:1, drawStyle:"fair", shinyRate:0.08, sound:true, battleMode:true,
   region:0, noLegendaries:false,
   p1name:"Player 1", p2name:"AI Rival",
   players:null, round:1, cur:0,
@@ -821,10 +821,11 @@ function renderSetup(){
 
     <div class="card-surface setup">
       <div class="field">
-        <label>Player 2 <span class="hint">— who drafts second?</span></label>
+        <label>Player 2 <span class="hint">— who do you play against?</span></label>
         <div class="choices" id="c-p2">
-          <div class="chip ${S.p2ai?"on":""}" data-v="ai">AI Rival<small>Auto-drafts</small></div>
-          <div class="chip ${!S.p2ai?"on":""}" data-v="human">Human<small>Pass & play</small></div>
+          <div class="chip ${S.p2mode==="ai"?"on":""}" data-v="ai">AI Rival<small>Auto-drafts</small></div>
+          <div class="chip ${S.p2mode==="human"?"on":""}" data-v="human">Human<small>Pass &amp; play</small></div>
+          <div class="chip ${S.p2mode==="online"?"on":""}" data-v="online">🌐 Online<small>Play a friend</small></div>
         </div>
       </div>
 
@@ -878,14 +879,19 @@ function renderSetup(){
         </div>
       </div>
 
-      <button class="btn" id="start">Start Duel</button>
+      ${ S.p2mode==="online"
+        ? `<div class="names" style="margin-bottom:10px"><input id="joinCode" maxlength="4" autocapitalize="characters" placeholder="Lobby code (to join)"></div>
+           <button class="btn" id="createLobby">Create lobby</button>
+           <button class="btn ghost" id="enterLobby" style="margin-top:10px">Enter lobby</button>
+           <div class="acct-err" id="onlineMsg" style="text-align:center"></div>`
+        : `<button class="btn" id="start">Start Duel</button>` }
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v17 — online battles</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v18 — online setup</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
-  bindChips("c-p2",v=>{S.p2ai=(v==="ai"); const n2=$("n2"); if(n2) n2.placeholder=S.p2ai?"AI Rival":"Player 2";});
+  bindChips("c-p2",v=>{ S.p2mode=v; S.p2ai=(v==="ai"); const n2=$("n2"); if(n2) n2.placeholder=(v==="human"?"Player 2":"AI Rival"); renderSetup(); });
   bindChips("c-ng",v=>{S.noGoPerRound=+v;});
   bindChips("c-end",v=>{S.battleMode=(v==="battle");});
   bindChips("c-ds",v=>{S.drawStyle=v; updatePreview();});
@@ -900,8 +906,35 @@ function renderSetup(){
     updatePreview();
   }
 
-  $("start").onclick=startGame;
+  const st=$("start"); if(st) st.onclick=startGame;
+  const cl=$("createLobby"); if(cl) cl.onclick=onlineCreateFromSetup;
+  const el=$("enterLobby");  if(el) el.onclick=onlineJoinFromSetup;
   bindAccountBar();
+}
+// online entry points from the setup screen (settings already chosen)
+function onlineNeedsLogin(){
+  const m=$("onlineMsg");
+  if(!fbReady()){ if(m) m.textContent="Online needs a connection — try again in a moment."; return true; }
+  if(!ME){ if(m) m.textContent="Log in first (top of the screen) to play online."; openAcct("signup"); return true; }
+  return false;
+}
+function onlineSettings(){
+  return { region:S.region, noLegendaries:!!S.noLegendaries, drawStyle:S.drawStyle,
+           noGoPerRound:S.noGoPerRound, shinyRate:shinyRateFor(S.drawStyle) };
+}
+async function onlineCreateFromSetup(){
+  if(onlineNeedsLogin()) return;
+  S.p1name=(($("n1")&&$("n1").value.trim())||ME.name);
+  await createRoom(onlineSettings());       // host's settings travel with the room
+  S.screen="online"; render();
+}
+async function onlineJoinFromSetup(){
+  if(onlineNeedsLogin()) return;
+  const code=$("joinCode")?$("joinCode").value:"";
+  if((code||"").trim().length!==4){ const m=$("onlineMsg"); if(m) m.textContent="Enter the 4-letter lobby code first."; return; }
+  S.p1name=(($("n1")&&$("n1").value.trim())||ME.name);
+  await joinRoom(code);
+  if(S.net){ S.screen="online"; render(); }
 }
 function updatePreview(){
   const ll=$("loadline"); if(!ll) return;
@@ -2312,7 +2345,7 @@ function accountBarHTML(){
   if(ME) return `<div class="acctbar">
       <span class="who">👤 ${escapeHtml(ME.name)}</span>
       <span class="rec">⚔️ ${ME.wins}W – ${ME.losses}L</span>
-      <button class="acbtn" id="acOnline">🌐 Play Online</button>
+      <span style="margin-left:auto;color:var(--muted);font-size:12px">Play online: set Player 2 → 🌐</span>
       <button class="acbtn" id="acLogout">Log out</button>
     </div>`;
   return `<div class="acctbar"><span class="who muted">Log in to play online &amp; save your record</span>
@@ -2321,7 +2354,6 @@ function accountBarHTML(){
 function bindAccountBar(){
   const lo=$("acLogout"); if(lo) lo.onclick=()=>{ FBauth.signOut(); };
   const li=$("acLogin"); if(li) li.onclick=()=>openAcct("login");
-  const on=$("acOnline"); if(on) on.onclick=()=>{ S.net=null; S.netErr=""; S.screen="online"; render(); };
 }
 
 /* ============================================================
@@ -2331,14 +2363,15 @@ function genCode(){ const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s=""; for(le
 function roomRef(code){ return FBdb.ref("rooms/"+code); }
 function detachRoom(){ if(S.net&&S.net.ref){ try{ S.net.ref.off("value", S.net.cb); }catch(e){} S.net.ref=null; } }
 
-async function createRoom(){
+async function createRoom(settings){
   if(!fbReady()||!ME) return;
   let code=genCode();
   try{
     // avoid a collision with an existing open room
     for(let t=0;t<5;t++){ const s=await roomRef(code).once("value"); if(!s.exists()) break; code=genCode(); }
     await roomRef(code).set({
-      host:{uid:ME.uid,name:ME.name}, guest:null, phase:"lobby", created:Date.now()
+      host:{uid:ME.uid,name:ME.name}, guest:null, phase:"lobby", created:Date.now(),
+      settings: settings||null    // host's game settings apply to both players
     });
     S.net={code, role:"host", ref:null, room:null, cb:null};
     // if the host leaves, tear the room down
@@ -2470,6 +2503,11 @@ function netOnRoomUpdate(room){
 }
 async function startOnlineDraft(room){
   S.online=true;
+  // both players use the HOST's chosen settings so the draft is fair
+  const st=room.settings;
+  if(st){ S.region=st.region||0; S.noLegendaries=!!st.noLegendaries; S.drawStyle=st.drawStyle||"fair";
+          S.noGoPerRound=(st.noGoPerRound!=null?st.noGoPerRound:1); S.shinyRate=st.shinyRate||shinyRateFor(S.drawStyle); }
+  S.battleMode=true;
   const meName=(S.net.role==="host"?room.host.name:(room.guest&&room.guest.name))||ME.name;
   const oppName=(S.net.role==="host"?(room.guest&&room.guest.name):room.host.name)||"Opponent";
   S.p1name=meName;
