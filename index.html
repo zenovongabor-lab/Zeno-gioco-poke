@@ -85,143 +85,31 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
   color:#fff;padding:12px;font-size:15px;font-family:system-ui;min-width:0;
 }
 .names input:focus{outline:none;border-color:var(--yellow)}
-.loadline{color:var(--muted);font-size:13px;text-align:center;margin-top:12px;min-height:18px}
 
-/* ---------- top bar ---------- */
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
-.pips{display:flex;gap:5px}
-.pip{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.15)}
-.pip.done{background:var(--yellow);border-color:var(--yellow)}
-.pip.now{background:var(--red);border-color:#fff;box-shadow:0 0 8px var(--red)}
-.roundlbl{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:8px}
-.iconbtn{background:var(--slot);border:1px solid var(--line);color:var(--white);width:40px;height:40px;border-radius:12px;font-size:18px;cursor:pointer;display:grid;place-items:center}
-
-.turnbanner{text-align:center;font-family:var(--display);font-weight:700;font-size:20px;
-  padding:10px;border-radius:14px;margin-bottom:14px;
-  background:linear-gradient(90deg,transparent,rgba(255,203,5,.14),transparent);
-  transition:.2s}
-.turnbanner .who{color:var(--yellow)}
-.turnbanner.p2{background:linear-gradient(90deg,transparent,rgba(99,144,240,.16),transparent)}
-.turnbanner.p2 .who{color:#8fb2ff}
-
-/* ---------- rosters ---------- */
-.rosters{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
-.roster{padding:8px 10px;border-radius:14px;border:1px solid var(--line);background:var(--slot);transition:.2s}
-.roster.active{border-color:var(--yellow);background:linear-gradient(90deg,rgba(255,203,5,.10),transparent)}
-.roster .rhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.rname{font-family:var(--display);font-weight:600;font-size:14px}
-.rscore{font-family:var(--mono);font-size:13px;color:var(--yellow)}
-.slots{display:flex;gap:6px}
-.slot{flex:1;aspect-ratio:1;border-radius:10px;background:var(--slot);border:1px dashed rgba(255,255,255,.14);
-  display:grid;place-items:center;position:relative;overflow:hidden}
-.slot img{width:100%;height:100%;object-fit:contain;padding:2px}
-.slot.filled{border-style:solid;border-color:var(--line);background:rgba(255,255,255,.04)}
-.slot.shiny{box-shadow:inset 0 0 0 2px var(--yellow), 0 0 8px rgba(255,203,5,.4)}
-.slot .num{position:absolute;top:2px;left:4px;font-family:var(--mono);font-size:9px;color:var(--muted)}
-.slot.pop{animation:pop .4s ease}
-@keyframes pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1)}}
-
-/* ---------- arena / balls ---------- */
-.arena{position:relative;padding:8px 4px 4px;margin-bottom:8px}
-.arena .platform{
-  position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
-  width:86%;height:44px;border-radius:50%;
-  background:radial-gradient(ellipse at center, rgba(255,203,5,.18), transparent 70%);
-  z-index:0;pointer-events:none
-}
-.arena-hint{text-align:center;color:var(--muted);font-size:13px;margin:2px 0 12px}
-.balls{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-@media(max-width:460px){.balls{grid-template-columns:repeat(2,1fr);gap:16px}}
-.ballwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
-.ball{
-  --c:var(--red);
-  width:100%;max-width:120px;aspect-ratio:1;border-radius:50%;position:relative;cursor:pointer;
-  background:
-    radial-gradient(circle at 34% 30%, rgba(255,255,255,.6), transparent 30%),
-    linear-gradient(180deg, var(--c) 0 47%, #f4f4f8 53% 100%);
-  border:4px solid #17162f;
-  box-shadow:0 10px 18px rgba(0,0,0,.4), inset 0 -6px 12px rgba(0,0,0,.25);
-  animation:wobble 3s ease-in-out infinite;
-  transition:transform .1s ease;
-}
-.ball::before{content:"";position:absolute;left:-4px;right:-4px;top:calc(50% - 5px);height:10px;background:#17162f}
-.ball::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:26%;aspect-ratio:1;border-radius:50%;background:#f4f4f8;border:4px solid #17162f;
-  box-shadow:0 0 0 3px #f4f4f8, inset 0 0 6px rgba(0,0,0,.3)}
-.ball:active{transform:scale(.94)}
-.ball.shake{animation:shake .5s ease}
-.ball.spent{opacity:.28;filter:grayscale(.7);cursor:default;animation:none}
-.ball.opened{opacity:.2;filter:grayscale(.6);cursor:default;animation:none;transform:scale(.85)}
-.balltag{font-family:var(--display);font-weight:600;font-size:12px;color:var(--muted)}
-.ball.disabled{cursor:default;animation-play-state:paused}
-@keyframes wobble{0%,88%,100%{transform:rotate(0)}92%{transform:rotate(-6deg)}96%{transform:rotate(6deg)}}
-@keyframes shake{0%,100%{transform:rotate(0)}10%{transform:rotate(-14deg) scale(1.05)}30%{transform:rotate(14deg) scale(1.08)}
-  50%{transform:rotate(-16deg) scale(1.1)}70%{transform:rotate(12deg) scale(1.06)}90%{transform:rotate(-6deg)}}
-
-/* ball type variety */
-.ball.great{--c:#3a7bd5}
-.ball.ultra{--c:#f2b134}
-.ball.ultra::after{background:#111;box-shadow:0 0 0 3px #f4f4f8,inset 0 0 6px rgba(0,0,0,.4)}
-.ball.master{--c:#7d3cc9}
-
-/* ---------- reveal modal ---------- */
-.backdrop{position:fixed;inset:0;background:rgba(8,6,26,.72);backdrop-filter:blur(4px);
-  display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
-.backdrop.show{display:flex;animation:fade .2s ease}
-@keyframes fade{from{opacity:0}to{opacity:1}}
-.reveal{width:100%;max-width:360px;border-radius:26px;padding:20px 18px 18px;text-align:center;position:relative;
-  background:linear-gradient(180deg,var(--panel2),var(--panel));
-  border:1px solid var(--line);box-shadow:0 24px 60px rgba(0,0,0,.6);
-  animation:burst .45s cubic-bezier(.2,1.3,.4,1)}
-@keyframes burst{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
-.flash{position:fixed;inset:0;background:#fff;z-index:49;pointer-events:none;opacity:0}
-.flash.go{animation:flash .5s ease}
-@keyframes flash{0%{opacity:0}20%{opacity:.9}100%{opacity:0}}
-.spritebox{position:relative;width:190px;height:190px;margin:0 auto 4px;display:grid;place-items:center}
-.spritebox img{max-width:100%;max-height:100%;object-fit:contain;
-  filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));image-rendering:auto}
-.spritebox.shiny::before{content:"";position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(circle at center, rgba(255,203,5,.28), transparent 62%);animation:pulse 1.6s ease-in-out infinite}
-@keyframes pulse{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.08);opacity:1}}
-.spark{position:absolute;font-size:16px;pointer-events:none;animation:twinkle 1.4s ease-in-out infinite}
-@keyframes twinkle{0%,100%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1.1)}}
-.badges{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;min-height:10px}
-.badge{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:.5px;padding:3px 9px;border-radius:999px;text-transform:uppercase}
-.badge.mega{background:linear-gradient(90deg,#7d3cc9,#c94fd8);color:#fff}
-.badge.gmax{background:linear-gradient(90deg,#e0245e,#ff6a3d);color:#fff}
-.badge.shiny{background:var(--yellow);color:#3a2a00}
-.revname{font-family:var(--display);font-weight:700;font-size:24px;margin:2px 0 2px}
-.types{display:flex;gap:6px;justify-content:center;margin:6px 0 10px}
-.type{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:4px 10px;border-radius:999px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
-.statrow{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px}
-.bst{font-family:var(--mono);font-size:15px;color:var(--muted)}
-.bst b{color:#fff;font-size:26px}
-.bonus{font-family:var(--mono);font-size:12px;color:var(--good)}
-.reveal .actions{display:flex;gap:10px}
-.reveal .actions .btn{font-size:16px;padding:14px}
-.ai-note{color:var(--muted);font-size:13px;font-family:var(--mono);margin-top:4px;min-height:16px}
-
-/* ---------- results ---------- */
-.results{text-align:center;padding-top:10px}
-.winner{font-family:var(--display);font-weight:700;font-size:34px;margin:6px 0 2px;
-  background:linear-gradient(180deg,#fff,var(--yellow));-webkit-background-clip:text;background-clip:text;color:transparent}
-.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;margin:16px 0}
-.vscol{padding:12px 8px;border-radius:18px}
-.vscol.win{background:linear-gradient(180deg,rgba(255,203,5,.14),transparent);border:1px solid rgba(255,203,5,.35)}
-.vscol h3{margin:0 0 2px;font-size:16px}
-.vstotal{font-family:var(--mono);font-size:22px;color:var(--yellow);margin-bottom:8px}
-.vsteam{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.vsmon{background:var(--slot);border:1px solid var(--line);border-radius:10px;padding:3px;position:relative;aspect-ratio:1}
-.vsmon img{width:100%;height:100%;object-fit:contain}
-.vsmon.shiny{box-shadow:inset 0 0 0 2px var(--yellow)}
-.vsmid{font-family:var(--display);font-weight:700;font-size:22px;color:var(--muted);align-self:center}
-.results .btn{margin-top:8px}
-.confetti{position:fixed;top:-10px;font-size:16px;z-index:60;pointer-events:none;animation:fall linear forwards}
-@keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.9}}
-
-.spinner{width:34px;height:34px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:var(--yellow);animation:spin .8s linear infinite;margin:20px auto}
-@keyframes spin{to{transform:rotate(360deg)}}
-.foot{text-align:center;color:var(--muted);font-size:11px;margin-top:24px;opacity:.7}
+/* ---------- accounts (login bar + modal) ---------- */
+.acctbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--slot);border:1px solid var(--line);border-radius:14px;
+  padding:8px 12px;margin-bottom:10px;font-size:13.5px}
+.acctbar.off{color:var(--muted);justify-content:center}
+.acctbar .who{font-family:var(--display);font-weight:600}
+.acctbar .rec{font-family:var(--mono);font-size:12px;color:var(--yellow)}
+.acctbar .acbtn{margin-left:auto;background:var(--slot);border:1px solid var(--line);color:var(--white);
+  border-radius:10px;padding:7px 12px;font-family:var(--display);font-weight:600;font-size:13px;cursor:pointer}
+.acctbar .acbtn.primary{background:linear-gradient(180deg,var(--red),var(--red-d));border:none;box-shadow:0 3px 0 #7c1420}
+.modal-back{position:fixed;inset:0;background:rgba(8,6,26,.72);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:60;padding:18px}
+.modal-back.show{display:flex;animation:fade .2s ease}
+.acct{width:100%;max-width:340px;border-radius:22px;padding:18px 16px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.acct-tabs{display:flex;gap:8px;margin-bottom:14px}
+.acct-tab{flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:var(--slot);
+  color:var(--muted);font-family:var(--display);font-weight:600;font-size:15px;cursor:pointer;text-align:center}
+.acct-tab.on{border-color:var(--yellow);color:#fff;background:linear-gradient(180deg,rgba(255,203,5,.18),rgba(255,203,5,.05))}
+.acct-in{width:100%;background:var(--slot);border:1.5px solid var(--line);border-radius:12px;
+  color:#fff;padding:12px;font-size:15px;font-family:system-ui;margin-bottom:10px}
+.acct-in:focus{outline:none;border-color:var(--yellow)}
+.acct-err{color:#ff8a8a;font-size:13px;min-height:18px;margin-bottom:6px;text-align:center}
 
 /* ---------- online lobby ---------- */
 .online{max-width:460px;margin:0 auto;padding-top:6px}
@@ -247,16 +135,12 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 </head>
 <body>
 <div class="app" id="app"></div>
-<div class="flash" id="flash"></div>
-<div class="backdrop" id="backdrop"><div id="revealHost"></div></div>
+<div class="modal-back" id="acctBack"><div id="acctHost"></div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-/* ============================================================
-   POKÉ DRAFT DUEL — vanillajs multiplayer & setup engine
-   ============================================================ */
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyBkF-nWHpRBNAMY8l4sYveRYgQJ660W_c0",
   authDomain:"poke-draft-duel.firebaseapp.com",
@@ -270,11 +154,24 @@ const FIREBASE_CONFIG={
 if (!firebase.apps.length) {
   firebase.initializeApp(FIREBASE_CONFIG);
 }
+const FBauth = firebase.auth();
 const FBdb = firebase.database();
 
+let currentUser = null;
+let acctTab = 'login';
+let acctErr = '';
+
+FBauth.onAuthStateChanged(user => {
+  currentUser = user;
+  if(user && user.displayName) {
+    state.p1Name = user.displayName;
+  }
+  render();
+});
+
 let state = {
-  view: 'setup', // 'setup', 'online', 'draft'
-  p2Mode: 'ai',  // 'ai', 'human'
+  view: 'setup',
+  p2Mode: 'ai',
   reroll: 1,
   ending: 'battle',
   drawStyle: 'pair',
@@ -284,11 +181,7 @@ let state = {
   p2Name: 'AI Rival',
   roomCode: null,
   isHost: false,
-  roomData: null,
-  currentRound: 1,
-  activeTurn: 1,
-  p1Team: [],
-  p2Team: []
+  roomData: null
 };
 
 const REGIONS = [
@@ -306,12 +199,83 @@ const REGIONS = [
 function render() {
   const app = document.getElementById('app');
   if (state.view === 'setup') {
-    app.innerHTML = renderSetup();
+    app.innerHTML = renderAccountBar() + renderSetup();
   } else if (state.view === 'online') {
     app.innerHTML = renderOnline();
-  } else if (state.view === 'draft') {
-    app.innerHTML = renderDraft();
   }
+  renderAccountModal();
+}
+
+function renderAccountBar() {
+  if (currentUser) {
+    return `
+      <div class="acctbar">
+        <span>Logged in as <b class="who">${currentUser.displayName || currentUser.email}</b></span>
+        <button class="acbtn" onclick="logout()">Log out</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="acctbar off">
+      <span>Play as Guest or</span>
+      <button class="acbtn primary" onclick="showAcctModal(true)">Log in / Sign up</button>
+    </div>
+  `;
+}
+
+function renderAccountModal() {
+  const host = document.getElementById('acctHost');
+  if (!host) return;
+  host.innerHTML = `
+    <div class="acct">
+      <div class="acct-tabs">
+        <div class="acct-tab ${acctTab==='login'?'on':''}" onclick="setAcctTab('login')">Log In</div>
+        <div class="acct-tab ${acctTab==='signup'?'on':''}" onclick="setAcctTab('signup')">Sign Up</div>
+      </div>
+      ${acctErr ? `<div class="acct-err">${acctErr}</div>` : ''}
+      ${acctTab === 'signup' ? `<input type="text" id="acctName" class="acct-in" placeholder="Trainer Name">` : ''}
+      <input type="email" id="acctEmail" class="acct-in" placeholder="Email address">
+      <input type="password" id="acctPass" class="acct-in" placeholder="Password">
+      <button class="btn" onclick="handleAcctSubmit()">${acctTab === 'login' ? 'Log In' : 'Create Account'}</button>
+      <button class="btn ghost" style="margin-top:8px;" onclick="showAcctModal(false)">Cancel</button>
+    </div>
+  `;
+}
+
+function showAcctModal(show) {
+  const el = document.getElementById('acctBack');
+  if(show) el.classList.add('show');
+  else el.classList.remove('show');
+}
+
+function setAcctTab(tab) {
+  acctTab = tab;
+  acctErr = '';
+  renderAccountModal();
+}
+
+function handleAcctSubmit() {
+  const email = document.getElementById('acctEmail').value;
+  const pass = document.getElementById('acctPass').value;
+  acctErr = '';
+
+  if (acctTab === 'login') {
+    FBauth.signInWithEmailAndPassword(email, pass)
+      .then(() => showAcctModal(false))
+      .catch(err => { acctErr = err.message; renderAccountModal(); });
+  } else {
+    const name = document.getElementById('acctName').value;
+    FBauth.createUserWithEmailAndPassword(email, pass)
+      .then(res => {
+        return res.user.updateProfile({ displayName: name });
+      })
+      .then(() => showAcctModal(false))
+      .catch(err => { acctErr = err.message; renderAccountModal(); });
+  }
+}
+
+function logout() {
+  FBauth.signOut();
 }
 
 function renderSetup() {
@@ -378,7 +342,7 @@ function renderSetup() {
           <input type="text" value="${state.p2Name}" oninput="state.p2Name=this.value">
         </div>
       </div>
-      <button class="btn" onclick="startDuel()">Start Duel</button>
+      <button class="btn" onclick="openOnlineView()">Start Duel</button>
     </div>
   `;
 }
@@ -412,8 +376,6 @@ function renderOnline() {
           </div>
           ${room && room.host && room.guest ? `
             <div class="on-ready">Both trainers connected!</div>
-            <p style="font-size:12px;color:var(--muted)">Live battles are ready — click below to start!</p>
-            ${state.isHost ? `<button class="btn" style="margin-top:12px" onclick="startOnlineGame()">Start Draft</button>` : `<p style="color:var(--yellow)">Waiting for host to start...</p>`}
           ` : ''}
           <button class="btn ghost" style="margin-top:14px" onclick="leaveRoom()">Leave room</button>
         `}
@@ -422,135 +384,49 @@ function renderOnline() {
   `;
 }
 
-function renderDraft() {
-  return `
-    <div class="topbar">
-      <div>
-        <span class="roundlbl">ROUND ${state.currentRound} / 6</span>
-      </div>
-      <button class="btn ghost" style="width:auto;padding:6px 12px;font-size:12px;" onclick="leaveRoom()">Exit</button>
-    </div>
-    <div class="turnbanner ${state.activeTurn===2?'p2':''}">
-      Turn: <span class="who">${state.activeTurn===1 ? state.p1Name : state.p2Name}</span>
-    </div>
-    <div class="arena card-surface">
-      <div class="arena-hint">Pick a Poké Ball to reveal your Pokémon</div>
-      <div class="balls">
-        <div class="ballwrap"><div class="ball" onclick="pickBall(0)"></div></div>
-        <div class="ballwrap"><div class="ball great" onclick="pickBall(1)"></div></div>
-        <div class="ballwrap"><div class="ball ultra" onclick="pickBall(2)"></div></div>
-        <div class="ballwrap"><div class="ball master" onclick="pickBall(3)"></div></div>
-      </div>
-    </div>
-  `;
-}
-
-function setOption(key, val) {
-  state[key] = val;
-  render();
-}
-
+function setOption(key, val) { state[key] = val; render(); }
 function toggleRegion(id) {
-  if (state.regions.includes(id)) {
-    state.regions = state.regions.filter(r => r !== id);
-  } else {
-    state.regions.push(id);
-  }
+  if (state.regions.includes(id)) state.regions = state.regions.filter(r => r !== id);
+  else state.regions.push(id);
   render();
 }
-
 function toggleAllRegions() {
-  if (state.regions.length === 9) {
-    state.regions = [];
-  } else {
-    state.regions = [1,2,3,4,5,6,7,8,9];
-  }
+  if (state.regions.length === 9) state.regions = [];
+  else state.regions = [1,2,3,4,5,6,7,8,9];
   render();
 }
-
-function openOnlineView() {
-  state.view = 'online';
-  render();
-}
-
+function openOnlineView() { state.view = 'online'; render(); }
 function leaveRoom() {
-  if (state.roomCode) {
-    FBdb.ref('rooms/' + state.roomCode).off();
-  }
-  state.roomCode = null;
-  state.roomData = null;
-  state.isHost = false;
-  state.view = 'setup';
+  if (state.roomCode) FBdb.ref('rooms/' + state.roomCode).off();
+  state.roomCode = null; state.roomData = null; state.isHost = false; state.view = 'setup';
   render();
 }
-
 function createOnlineRoom() {
   const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-  state.roomCode = code;
-  state.isHost = true;
-  
-  const roomRef = FBdb.ref('rooms/' + code);
-  roomRef.set({
-    host: { name: state.p1Name },
-    settings: {
-      reroll: state.reroll,
-      ending: state.ending,
-      drawStyle: state.drawStyle,
-      regions: state.regions,
-      legendaries: state.legendaries
-    },
-    started: false
-  });
-
+  state.roomCode = code; state.isHost = true;
+  FBdb.ref('rooms/' + code).set({ host: { name: state.p1Name } });
   listenToRoom(code);
 }
-
 function joinOnlineRoom() {
   const input = document.getElementById('joinInput');
   if (!input || !input.value) return;
   const code = input.value.toUpperCase();
-  
   const roomRef = FBdb.ref('rooms/' + code);
   roomRef.once('value', snapshot => {
     if (snapshot.exists()) {
-      state.roomCode = code;
-      state.isHost = false;
-      state.p2Name = "Zeno Pressione";
+      state.roomCode = code; state.isHost = false; state.p2Name = "Zeno Pressione";
       roomRef.child('guest').set({ name: state.p2Name });
       listenToRoom(code);
-    } else {
-      alert("Room not found!");
-    }
+    } else { alert("Room not found!"); }
   });
 }
-
 function listenToRoom(code) {
-  const roomRef = FBdb.ref('rooms/' + code);
-  roomRef.on('value', snapshot => {
+  FBdb.ref('rooms/' + code).on('value', snapshot => {
     const data = snapshot.val();
     if (!data) return;
     state.roomData = data;
-    if (data.started && state.view !== 'draft') {
-      state.view = 'draft';
-    }
     render();
   });
-}
-
-function startOnlineGame() {
-  if (!state.roomCode) return;
-  FBdb.ref('rooms/' + state.roomCode).update({
-    started: true
-  });
-}
-
-function startDuel() {
-  state.view = 'draft';
-  render();
-}
-
-function pickBall(idx) {
-  alert("Drafting feature in active sync! Player turn recorded.");
 }
 
 render();
