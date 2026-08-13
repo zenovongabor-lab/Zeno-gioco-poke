@@ -540,6 +540,12 @@ const MYTHICAL = new Set([
   "zarude","pecharunt"
 ]);
 
+// Ultra Beasts are their own class — kept out of the "Legendary only" category.
+const ULTRA_BEAST = new Set([
+  "nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana",
+  "guzzlord","poipole","naganadel","stakataka","blacephalon"
+]);
+
 // Small offline safety net (used only if the live Pokédex can't load)
 const FALLBACK = [
   ["bulbasaur",1,318,["grass","poison"]],["charmander",4,309,["fire"]],["charizard",6,534,["fire","flying"]],
@@ -747,11 +753,11 @@ function buildMeta(){
     for(const n of S.pokedex){
       const sp=speciesOf(n);
       const id=sp?S.speciesId[sp]:0;
-      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false, mythical: sp?MYTHICAL.has(sp):false, bst: FALLBACK_MAP[n]?FALLBACK_MAP[n][2]:undefined};
+      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false, mythical: sp?MYTHICAL.has(sp):false, ultra: sp?ULTRA_BEAST.has(sp):false, bst: FALLBACK_MAP[n]?FALLBACK_MAP[n][2]:undefined};
     }
   } else {
     for(const f of FALLBACK){
-      S.meta[f[0]]={gen:genFromId(f[1]), legendary:LEGENDARY.has(f[0]), mythical:MYTHICAL.has(f[0]), bst:f[2]};
+      S.meta[f[0]]={gen:genFromId(f[1]), legendary:LEGENDARY.has(f[0]), mythical:MYTHICAL.has(f[0]), ultra:ULTRA_BEAST.has(f[0]), bst:f[2]};
     }
   }
 }
@@ -779,7 +785,7 @@ function computePool(){
     if(!m) return S.region===0;
     if(S.region!==0 && m.gen!==S.region) return false;
     if(S.noLegendaries && m.legendary) return false;
-    if(S.legendaryOnly && !m.legendary) return false;
+    if(S.legendaryOnly && (!m.legendary || m.ultra)) return false;   // no Ultra Beasts here
     if(S.mythicalOnly && !m.mythical) return false;
     if(S.statMax!==null || S.statMin!==null){
       // Only draft from our curated list of stat-known Pokémon, and judge by
