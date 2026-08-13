@@ -281,12 +281,27 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 
 /* ---------- classic (OG) battle skin ---------- */
 .battle-wrapper{display:flex;gap:12px;max-width:900px;margin:0 auto;justify-content:center}
+/* Battle screen breaks out of the 720px column and uses the whole window. */
+.app.wide{max-width:none;padding-left:12px;padding-right:12px}
+.app.wide .battle-wrapper{max-width:1180px}
+.app.wide .gb{flex:0 1 840px}
 .gb{flex:0 1 520px;display:flex;flex-direction:column;gap:10px}
-.gb-recap{flex:1;min-width:200px;max-width:300px;display:flex;flex-direction:column;gap:10px}
+.gb-recap{flex:1;min-width:200px;max-width:320px;display:flex;flex-direction:column;gap:10px}
 .gb-field{position:relative;aspect-ratio:1/0.82;border-radius:10px;overflow:hidden;border:3px solid #14131f;
   background:#2f4a2f url("assets/battlebg.jpg") center center/cover no-repeat;
   box-shadow:inset 0 0 0 2px #f8f8f0}
 .gb-field img{image-rendering:pixelated}
+/* "Giambo suca" trainer + thought bubble, kept above the Pokémon sprites so he
+   stays visible the whole battle. Same image, same fit → seamless over the bg. */
+.gb-guy{position:absolute;inset:0;z-index:4;pointer-events:none;image-rendering:pixelated;
+  background:url("assets/guy_overlay.png") center center/cover no-repeat}
+.foeHp,.youHp{z-index:5}
+/* Narrow screens: battle field fills the width, recap drops below it. */
+@media(max-width:720px){
+  .battle-wrapper{flex-direction:column;align-items:stretch;gap:10px}
+  .app.wide .gb,.gb{flex:1 1 auto}
+  .gb-recap{max-width:none;min-width:0;max-height:170px}
+}
 .plat{position:absolute;width:44%;height:10%;border-radius:50%;background:rgba(70,140,60,.30)}
 .plat.foe{top:31%;right:3%}
 .plat.you{bottom:10%;left:1%}
@@ -868,6 +883,7 @@ async function generateTurnMons(){
    RENDER
    ============================================================ */
 function render(){
+  const app=$("app"); if(app) app.classList.toggle("wide", S.screen==="battle");
   if(S.screen==="setup")   return renderSetup();
   if(S.screen==="online")  return renderOnline();
   if(S.screen==="game")    return renderGame();
@@ -1858,6 +1874,7 @@ function activeB(side){ return S.bt.teams[side][S.bt.active[side]]; }
 
 function renderBattle(){
   const bt=S.bt;
+  $("app").classList.add("wide");
   $("app").innerHTML=`
     <div class="bhead"><h2>Battle</h2><span class="disp" id="bcount"></span></div>
     <div class="battle-wrapper">
@@ -1869,6 +1886,7 @@ function renderBattle(){
           <div class="bslot foeHp" id="foeHp"></div>
           <div class="bslot foeMon" id="foeMon"></div>
           <div class="bslot youMon" id="youMon"></div>
+          <div class="gb-guy"></div>
           <div class="bslot youHp" id="youHp"></div>
         </div>
         <div class="gb-text" id="bLog"></div>
