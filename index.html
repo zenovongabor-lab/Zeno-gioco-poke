@@ -794,16 +794,36 @@ async function fetchMon(name){
 async function rollMon(){
   const shiny=Math.random()<S.shinyRate;
   const pool=(S.pool&&S.pool.length)?S.pool:S.pokedex;
+
+  // Helper to check if a Pokémon passes the stat filter
+  const passesStatFilter = (mon) => {
+    if(S.statMax!==null && mon.bst && mon.bst>S.statMax) return false;
+    if(S.statMin!==null && mon.bst && mon.bst<S.statMin) return false;
+    return true;
+  };
+
   if(S.apiOk){
-    for(let t=0;t<6;t++){
+    for(let t=0;t<30;t++){
       try{
         const m=await fetchMon(rnd(pool));
+        if(!passesStatFilter(m)) continue;
         const imgList=spriteUrls(m.id,shiny);
         return {...m,shiny,imgList,img:imgList[0]};
       }catch(e){/* retry */}
     }
   }
   const f=FALLBACK_MAP[rnd(pool)]||rnd(FALLBACK);
+  if(!passesStatFilter({bst:f[2]})){
+    // If fallback doesn't match filter, keep trying
+    for(let t=0;t<30;t++){
+      const fb=FALLBACK_MAP[rnd(pool)]||rnd(FALLBACK);
+      if(passesStatFilter({bst:fb[2]})){
+        f.length=0;
+        f.push(...fb);
+        break;
+      }
+    }
+  }
   const imgList=spriteUrls(f[1],shiny);
   return {name:f[0],id:f[1],bst:f[2],types:f[3],shiny,imgList,img:imgList[0],
           ...parseName(f[0])};
