@@ -739,6 +739,18 @@ function buildMeta(){
 // battle forms) — these show a blank Poké Ball and must never be draftable.
 const JUNK_FORM=/-(totem|cosplay|rock-star|belle|pop-star|phd|libre|starter|eternamax|battle-bond|ash|own-tempo|gulping|gorging|hangry|noice|power-construct|glide-mode|drive-mode|aquatic-mode|low-power-mode|apex-build|limited-build|sprinting-build|swimming-build|gliding-build|cap)$/;
 function isJunkForm(n){ return JUNK_FORM.test(n); }
+// Base-stat-total exactly as it will be shown in battle (mirrors fetchMon):
+// the Hydro Bliss rebalanced total when available, else the FALLBACK value.
+function bstOf(name){
+  const pn=parseName(name);
+  if(!pn.mega && !pn.gmax){
+    const base=(typeof speciesOf==="function" && speciesOf(name))||name.split("-")[0];
+    const hs=HB_STATS[hbNorm(name)]||HB_STATS[hbNorm(base)];
+    if(hs) return hs[0]+hs[1]+hs[2]+hs[3]+hs[4]+hs[5];
+  }
+  const fb=FALLBACK_MAP[name];
+  return fb?fb[2]:undefined;
+}
 function computePool(){
   S.pool=S.pokedex.filter(n=>{
     if(isJunkForm(n)) return false;
@@ -749,9 +761,11 @@ function computePool(){
     if(S.legendaryOnly && !m.legendary) return false;
     if(S.mythicalOnly && !m.mythical) return false;
     if(S.statMax!==null || S.statMin!==null){
-      const fb=FALLBACK_MAP[n];
-      if(!fb) return false;
-      const bst=fb[2];
+      // Only draft from our curated list of stat-known Pokémon, and judge by
+      // the SAME total the battle screen shows so the category can't leak.
+      if(!FALLBACK_MAP[n]) return false;
+      const bst=bstOf(n);
+      if(bst==null) return false;
       if(S.statMax!==null && bst>S.statMax) return false;
       if(S.statMin!==null && bst<S.statMin) return false;
     }
@@ -1593,7 +1607,9 @@ function calcDamage(atk,def,mv){
   if(eff>0) d=Math.max(1,d);
   return {d,eff,crit:crit>1};
 }
-function bestMove(a,d){ let best=a.moves[0],bd=-1;
+function bestMove(a,d){
+  if(a.charging){ const cm=a.moves.find(m=>m.name===a.charging); if(cm) return cm; }
+  let best=a.moves[0],bd=-1;
   for(const mv of a.moves){ const A=mv.cls==="physical"?a.b.atk:a.b.spa, D=mv.cls==="physical"?d.b.def:d.b.spd;
     const base=Math.floor(Math.floor((2*LV/5+2)*mv.power*A/D)/50)+2;
     const acc=(mv.acc==null||mv.acc<=0)?100:mv.acc;
@@ -2051,7 +2067,7 @@ async function doTurn(action){
   // ---- player chooses to switch: it costs the turn, the foe still attacks ----
   if(action.type==="switch"){
     const outMon=activeB(0);
-    outMon.entered=false; outMon.flashfire=false;   // re-triggers entry next time it comes in
+    outMon.entered=false; outMon.flashfire=false; outMon.charging=null;   // re-triggers entry next time it comes in
     bt.active[0]=action.to;
     const inMon=activeB(0);
     paintPanel(0);
@@ -2068,7 +2084,8 @@ async function doTurn(action){
 
   // ---- both sides attack ----
   const you=activeB(0), foe=activeB(1);
-  const m0 = auto ? bestMove(you,foe) : you.moves[action.idx];
+  const youCharge = you.charging ? you.moves.find(m=>m.name===you.charging) : null;
+  const m0 = auto ? bestMove(you,foe) : (youCharge || you.moves[action.idx]);
   const m1 = bestMove(foe,you);
   const sYou=eStat(you,"spe"), sFoe=eStat(foe,"spe");
   let first = sYou>sFoe ? 0 : sYou<sFoe ? 1 : (Math.random()<.5?0:1);
@@ -2132,6 +2149,20 @@ async function afterTurn(){
 }
 async function performMove(side,atk,def,mv){
   const bt=S.bt, defSide=1-side;
+  // ---- two-turn charge moves (Solar Beam / Solar Blade) ----
+  // Turn 1 charges (uses the turn); turn 2 fires. In harsh sunlight it fires at once.
+  const CHARGE_MOVE={"Solar Beam":1,"Solar Blade":1};
+  if(CHARGE_MOVE[mv.name] && atk.charging!==mv.name && weatherActive()!=="sun"){
+    pushLog(`${escapeHtml(atk.mon.display)} used <b>${mv.name}</b>!`);
+    beep(side===0?520:300,.05,"square",.04);
+    await wait(320);
+    pushLog(`<span class="eff">${escapeHtml(atk.mon.display)} took in sunlight!</span>`);
+    atk.charging=mv.name;
+    beep(760,.08,"sine",.04);
+    await wait(650);
+    return;                       // charging costs the turn
+  }
+  if(atk.charging===mv.name) atk.charging=null;   // fire now; release the lock
   pushLog(`${escapeHtml(atk.mon.display)} used <b>${mv.name}</b>!`);
   beep(side===0?520:300,.05,"square",.04);
   await wait(320);
