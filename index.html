@@ -729,8 +729,9 @@ function computePool(){
     if(S.noLegendaries && m.legendary) return false;
     if(S.legendaryOnly && !m.legendary) return false;
     if(S.mythicalOnly && !m.mythical) return false;
-    if(S.statMax!==null && m.bst && m.bst>S.statMax) return false;
-    if(S.statMin!==null && m.bst && m.bst<S.statMin) return false;
+    if((S.statMax!==null || S.statMin!==null) && !FALLBACK_MAP[n]) return false;
+    if(S.statMax!==null && m.bst>S.statMax) return false;
+    if(S.statMin!==null && m.bst<S.statMin) return false;
     return true;
   });
   if(!S.pool.length) S.pool=S.pokedex.slice();
