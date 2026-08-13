@@ -21,13 +21,19 @@ html,body{margin:0;padding:0;height:100%}
 body{
   font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
   color:var(--white);
-  background:
-    radial-gradient(1200px 600px at 50% -10%, #3a2f8a 0%, transparent 60%),
-    radial-gradient(900px 500px at 90% 110%, #4a1f5e 0%, transparent 55%),
-    linear-gradient(180deg,var(--night) 0%, var(--night2) 100%);
-  background-attachment:fixed;
+  background:linear-gradient(180deg,var(--night) 0%, var(--night2) 100%);
   min-height:100%;
   overflow-x:hidden;
+}
+/* Sleeping-Snorlax scene as a fixed full-screen backdrop, with a dark scrim
+   over it so the white menus / battle text stay readable. A fixed pseudo-layer
+   is used instead of background-attachment:fixed (unreliable on iOS Safari). */
+body::before{
+  content:"";
+  position:fixed; inset:0; z-index:-1;
+  background:
+    linear-gradient(180deg, rgba(20,18,53,.58) 0%, rgba(20,18,53,.82) 100%),
+    url("assets/bg.png") center center / cover no-repeat;
 }
 h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
 .mono{font-family:var(--mono)}
