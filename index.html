@@ -846,9 +846,11 @@ async function fetchMon(name){
   S.cache[name]=mon; return mon;
 }
 
-async function rollMon(){
+async function rollMon(exclude){
   const shiny=Math.random()<S.shinyRate;
-  const pool=(S.pool&&S.pool.length)?S.pool:S.pokedex;
+  const basePool=(S.pool&&S.pool.length)?S.pool:S.pokedex;
+  let pool=basePool;
+  if(exclude&&exclude.size){ const f=basePool.filter(n=>!exclude.has(n)); if(f.length) pool=f; }
   if(S.apiOk){
     for(let t=0;t<6;t++){
       try{
@@ -865,18 +867,33 @@ async function rollMon(){
 }
 
 // Build the 4 balls for a turn according to the chosen draw style.
+// No doubles: never offer a species the current player already owns, and keep
+// the four balls distinct from each other.
 async function generateTurnMons(){
+  const owned=new Set(((S.players&&S.players[S.cur]&&S.players[S.cur].team)||[]).map(m=>m.name));
+  let picks;
   if(S.drawStyle==="fair"){
     const K=8;
-    const c=await Promise.all(Array.from({length:K},()=>rollMon()));
+    const c=await Promise.all(Array.from({length:K},()=>rollMon(owned)));
     c.sort((a,b)=>a.bst-b.bst);
     const nStrong=pickWeighted([[2,58],[1,16],[3,16],[0,5],[4,5]]);
     const strong=c.slice(c.length-nStrong);   // strongest of the batch
     const weak=c.slice(0,4-nStrong);           // weakest of the batch
-    return shuffle([...strong,...weak]);
+    picks=shuffle([...strong,...weak]);
+  } else {
+    // classic / chaos: pure luck, each ball independent
+    picks=await Promise.all([rollMon(owned),rollMon(owned),rollMon(owned),rollMon(owned)]);
   }
-  // classic / chaos: pure luck, each ball independent
-  return Promise.all([rollMon(),rollMon(),rollMon(),rollMon()]);
+  // De-duplicate the four shown balls (and against owned species).
+  const seen=new Set(owned), out=[];
+  for(const m of picks){ if(!seen.has(m.name)){ seen.add(m.name); out.push(m); } }
+  let guard=0;
+  while(out.length<4 && guard++<40){
+    const m=await rollMon(seen);
+    if(!seen.has(m.name)){ seen.add(m.name); out.push(m); }
+  }
+  while(out.length<4) out.push(picks[out.length%Math.max(1,picks.length)]); // tiny-pool fallback
+  return out.slice(0,4);
 }
 
 /* ============================================================
