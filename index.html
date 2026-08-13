@@ -803,27 +803,33 @@ async function rollMon(){
   };
 
   if(S.apiOk){
-    for(let t=0;t<30;t++){
+    let attempts=0;
+    while(attempts<100){
+      attempts++;
       try{
         const m=await fetchMon(rnd(pool));
-        if(!passesStatFilter(m)) continue;
-        const imgList=spriteUrls(m.id,shiny);
-        return {...m,shiny,imgList,img:imgList[0]};
+        if(passesStatFilter(m)){
+          const imgList=spriteUrls(m.id,shiny);
+          return {...m,shiny,imgList,img:imgList[0]};
+        }
       }catch(e){/* retry */}
     }
   }
-  const f=FALLBACK_MAP[rnd(pool)]||rnd(FALLBACK);
-  if(!passesStatFilter({bst:f[2]})){
-    // If fallback doesn't match filter, keep trying
-    for(let t=0;t<30;t++){
-      const fb=FALLBACK_MAP[rnd(pool)]||rnd(FALLBACK);
-      if(passesStatFilter({bst:fb[2]})){
-        f.length=0;
-        f.push(...fb);
-        break;
-      }
+
+  // Fallback: find a matching Pokémon from FALLBACK data
+  let attempts=0;
+  while(attempts<100){
+    attempts++;
+    const f=FALLBACK_MAP[rnd(pool)]||rnd(FALLBACK);
+    if(passesStatFilter({bst:f[2]})){
+      const imgList=spriteUrls(f[1],shiny);
+      return {name:f[0],id:f[1],bst:f[2],types:f[3],shiny,imgList,img:imgList[0],
+              ...parseName(f[0])};
     }
   }
+
+  // Absolute fallback: return any Pokémon (shouldn't reach here in normal cases)
+  const f=rnd(FALLBACK);
   const imgList=spriteUrls(f[1],shiny);
   return {name:f[0],id:f[1],bst:f[2],types:f[3],shiny,imgList,img:imgList[0],
           ...parseName(f[0])};
