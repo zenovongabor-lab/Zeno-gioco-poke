@@ -797,10 +797,18 @@ async function rollMon(){
 
   // Helper to check if a Pokémon passes the stat filter
   const passesStatFilter = (mon) => {
-    if(S.statMax!==null && mon.bst && mon.bst>S.statMax) return false;
-    if(S.statMin!==null && mon.bst && mon.bst<S.statMin) return false;
+    if(S.statMax!==null && mon.bst && mon.bst>S.statMax){
+      console.log(`Filtered out ${mon.name} (BST ${mon.bst} > max ${S.statMax})`);
+      return false;
+    }
+    if(S.statMin!==null && mon.bst && mon.bst<S.statMin){
+      console.log(`Filtered out ${mon.name} (BST ${mon.bst} < min ${S.statMin})`);
+      return false;
+    }
     return true;
   };
+
+  console.log(`rollMon: statMax=${S.statMax}, statMin=${S.statMin}, pool size=${pool.length}`);
 
   if(S.apiOk){
     let attempts=0;
@@ -808,12 +816,15 @@ async function rollMon(){
       attempts++;
       try{
         const m=await fetchMon(rnd(pool));
+        console.log(`Attempt ${attempts}: ${m.name} BST=${m.bst}`);
         if(passesStatFilter(m)){
+          console.log(`✓ Returning ${m.name}`);
           const imgList=spriteUrls(m.id,shiny);
           return {...m,shiny,imgList,img:imgList[0]};
         }
-      }catch(e){/* retry */}
+      }catch(e){console.log(`API error: ${e.message}`)}
     }
+    console.log(`Failed to find valid API Pokémon after 100 attempts`);
   }
 
   // Fallback: find a matching Pokémon from FALLBACK data
