@@ -489,7 +489,7 @@ const GEN_MAX = [151,251,386,493,649,721,809,905,1025];
 const REGION_NAMES = ["Kanto","Johto","Hoenn","Sinnoh","Unova","Kalos","Alola","Galar","Paldea"];
 function genFromId(id){ for(let g=0;g<9;g++){ if(id<=GEN_MAX[g]) return g+1; } return 0; }
 
-// Curated legendary + mythical + ultra-beast + legendary-paradox species.
+// Curated legendary + mythical + legendary-paradox species (Ultra Beasts separated below).
 const LEGENDARY = new Set([
   "articuno","zapdos","moltres","mewtwo","mew",
   "raikou","entei","suicune","lugia","ho-oh","celebi",
@@ -500,14 +500,18 @@ const LEGENDARY = new Set([
   "landorus","kyurem","keldeo","meloetta","genesect",
   "xerneas","yveltal","zygarde","diancie","hoopa","volcanion",
   "type-null","silvally","tapu-koko","tapu-lele","tapu-bulu","tapu-fini","cosmog","cosmoem",
-  "solgaleo","lunala","nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana",
-  "guzzlord","necrozma","magearna","marshadow","poipole","naganadel","stakataka","blacephalon",
+  "solgaleo","lunala","necrozma","magearna","marshadow","poipole","naganadel",
   "zeraora","meltan","melmetal",
   "zacian","zamazenta","eternatus","kubfu","urshifu","zarude","regieleki","regidrago",
   "glastrier","spectrier","calyrex","enamorus",
   "wo-chien","chien-pao","ting-lu","chi-yu","koraidon","miraidon","walking-wake","iron-leaves",
   "okidogi","munkidori","fezandipiti","ogerpon","terapagos","pecharunt",
   "gouging-fire","raging-bolt","iron-boulder","iron-crown"
+]);
+
+const ULTRA_BEAST = new Set([
+  "nihilego","buzzwole","pheromosa","xurkitree","celesteela","kartana",
+  "guzzlord","stakataka","blacephalon"
 ]);
 
 const MYTHICAL = new Set([
@@ -1189,6 +1193,19 @@ function hideReveal(){ $("backdrop").classList.remove("show"); }
 function keepMon(){
   const p=S.players[S.cur];
   const m=S.balls[S.activeIdx].mon;
+
+  // Enforce stat filter restrictions
+  if(S.statMax!==null && m.bst && m.bst>S.statMax){
+    beep(150,.1,"sine",.05);
+    alert(`This Pokémon has a BST of ${m.bst}, but the battle requires ≤ ${S.statMax} stats.`);
+    return;
+  }
+  if(S.statMin!==null && m.bst && m.bst<S.statMin){
+    beep(150,.1,"sine",.05);
+    alert(`This Pokémon has a BST of ${m.bst}, but the battle requires ≥ ${S.statMin} stats.`);
+    return;
+  }
+
   p.team.push(m);
   beep(880,.1,"triangle",.05);
   hideReveal();
@@ -1217,21 +1234,25 @@ async function aiTurn(){
   const p=S.players[S.cur];
   await wait(650);
   while(true){
-    const closed=S.balls.map((b,i)=>b.state==="closed"?i:-1).filter(i=>i>=0);
+    const closed=S.balls.map((b,i)=>b.state===”closed”?i:-1).filter(i=>i>=0);
     const i=rnd(closed);
     await openBall(i);
     await wait(950);
     const m=S.balls[i].mon;
     const othersLeft=closed.length-1;
-    const wantKeep = m.shiny||m.mega||m.gmax||m.bst>=480||p.noGoRoundLeft<=0||othersLeft<=0;
-    const note=$("aiNote");
+
+    // Check if Pokémon meets stat filter requirements
+    const passesStatFilter = !((S.statMax!==null && m.bst && m.bst>S.statMax) || (S.statMin!==null && m.bst && m.bst<S.statMin));
+
+    const wantKeep = passesStatFilter && (m.shiny||m.mega||m.gmax||m.bst>=480||p.noGoRoundLeft<=0||othersLeft<=0);
+    const note=$(“aiNote”);
     if(wantKeep){
-      if(note) note.textContent=(m.shiny||m.mega||m.gmax)?"“I'll take that — rare one!”":(m.bst>=480?"“Strong enough. Keeping it.”":"“I'll keep this.”");
+      if(note) note.textContent=(m.shiny||m.mega||m.gmax)?””I'll take that — rare one!””:(m.bst>=480?””Strong enough. Keeping it.””:””I'll keep this.””);
       await wait(700);
       keepMon();
       return;
     } else {
-      if(note) note.textContent="“Not good enough — No Go!”";
+      if(note) note.textContent=””Not good enough — No Go!””;
       await wait(750);
       useNoGo();
       await wait(500);
