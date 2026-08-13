@@ -534,7 +534,26 @@ const FALLBACK = [
   ["sceptile",254,530,["grass"]],["blaziken",257,530,["fire","fighting"]],["swampert",260,535,["water","ground"]],
   ["gardevoir",282,518,["psychic","fairy"]],["metagross",376,600,["steel","psychic"]],["rayquaza",384,680,["dragon","flying"]],
   ["infernape",392,534,["fire","fighting"]],["garchomp",445,600,["dragon","ground"]],["lucario",448,525,["fighting","steel"]],
-  ["greninja",658,530,["water","dark"]]
+  ["greninja",658,530,["water","dark"]],
+  // ---- Low base-stat-total Pokémon (BST <= 300) for the "weak only" category ----
+  ["caterpie",10,195,["bug"]],["weedle",13,195,["bug","poison"]],["metapod",11,205,["bug"]],
+  ["kakuna",14,205,["bug","poison"]],["pidgey",16,251,["normal","flying"]],["rattata",19,253,["normal"]],
+  ["spearow",21,262,["normal","flying"]],["zubat",41,245,["poison","flying"]],["ekans",23,288,["poison"]],
+  ["sandshrew",27,300,["ground"]],["nidoran-f",29,275,["poison"]],["nidoran-m",32,273,["poison"]],
+  ["vulpix",37,299,["fire"]],["paras",46,285,["bug","grass"]],["meowth",52,290,["normal"]],
+  ["poliwag",60,300,["water"]],["bellsprout",69,300,["grass","poison"]],["geodude",74,300,["rock","ground"]],
+  ["magikarp",129,200,["water"]],["ditto",132,288,["normal"]],["horsea",116,295,["water"]],
+  ["diglett",50,265,["ground"]],["sunkern",191,180,["grass"]],["pichu",172,205,["electric"]],
+  ["cleffa",173,218,["fairy"]],["igglybuff",174,210,["normal","fairy"]],["hoppip",187,250,["grass","flying"]],
+  ["sentret",161,215,["normal"]],["hoothoot",163,262,["normal","flying"]],["ledyba",165,265,["bug","flying"]],
+  ["spinarak",167,250,["bug","poison"]],["wooper",194,210,["water","ground"]],["swinub",220,250,["ice","ground"]],
+  ["azurill",298,190,["normal","fairy"]],["wurmple",265,195,["bug"]],["ralts",280,198,["psychic","fairy"]],
+  ["feebas",349,200,["water"]],["poochyena",261,220,["dark"]],["zigzagoon",263,240,["normal"]],
+  ["wingull",278,270,["water","flying"]],["whismur",293,240,["normal"]],["kricketot",401,194,["bug"]],
+  ["happiny",440,220,["normal"]],["bidoof",399,250,["normal"]],["starly",396,245,["normal","flying"]],
+  ["shinx",403,263,["electric"]],["combee",415,244,["bug","flying"]],["burmy",412,224,["bug"]],
+  ["patrat",504,255,["normal"]],["lillipup",506,275,["normal"]],["purrloin",509,281,["dark"]],
+  ["pidove",519,264,["normal","flying"]]
 ];
 const FALLBACK_MAP = Object.fromEntries(FALLBACK.map(f=>[f[0],f]));
 
@@ -707,7 +726,7 @@ function buildMeta(){
     for(const n of S.pokedex){
       const sp=speciesOf(n);
       const id=sp?S.speciesId[sp]:0;
-      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false, mythical: sp?MYTHICAL.has(sp):false};
+      S.meta[n]={gen:id?genFromId(id):0, legendary: sp?LEGENDARY.has(sp):false, mythical: sp?MYTHICAL.has(sp):false, bst: FALLBACK_MAP[n]?FALLBACK_MAP[n][2]:undefined};
     }
   } else {
     for(const f of FALLBACK){
@@ -729,12 +748,16 @@ function computePool(){
     if(S.noLegendaries && m.legendary) return false;
     if(S.legendaryOnly && !m.legendary) return false;
     if(S.mythicalOnly && !m.mythical) return false;
-    if((S.statMax!==null || S.statMin!==null) && !FALLBACK_MAP[n]) return false;
-    if(S.statMax!==null && m.bst>S.statMax) return false;
-    if(S.statMin!==null && m.bst<S.statMin) return false;
+    if(S.statMax!==null || S.statMin!==null){
+      const fb=FALLBACK_MAP[n];
+      if(!fb) return false;
+      const bst=fb[2];
+      if(S.statMax!==null && bst>S.statMax) return false;
+      if(S.statMin!==null && bst<S.statMin) return false;
+    }
     return true;
   });
-  if(!S.pool.length) S.pool=S.pokedex.slice();
+  if(!S.pool.length && S.statMax===null && S.statMin===null) S.pool=S.pokedex.slice();
   return S.pool;
 }
 
