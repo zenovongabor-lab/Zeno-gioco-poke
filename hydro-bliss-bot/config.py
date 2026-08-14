@@ -53,8 +53,13 @@ KEYMAP = {
 VALID_BUTTONS = ["up", "down", "left", "right", "a", "b", "start", "select", "wait"]
 
 # --- Safety ----------------------------------------------------------------
-# Global hotkey that instantly stops the bot no matter what.
+# Global hotkey that instantly stops the bot no matter what. (Closing the game
+# window also stops the bot.)
 EMERGENCY_STOP_HOTKEY = "ctrl+alt+q"
+
+# Global hotkey to pause/resume. While paused the bot stops grabbing focus and
+# stops pressing keys, so your mouse and keyboard are yours again.
+PAUSE_HOTKEY = "ctrl+alt+p"
 
 # Max number of look-and-act cycles before the bot stops on its own (a safety
 # cap so it can't run forever unattended). None = no limit.

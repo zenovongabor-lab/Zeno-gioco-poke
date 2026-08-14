@@ -65,22 +65,50 @@ def build_brain():
 def play(max_steps):
     import keyboard
 
-    stop = {"flag": False}
-    keyboard.add_hotkey(config.EMERGENCY_STOP_HOTKEY, lambda: stop.update(flag=True))
+    state = {"stop": False, "paused": False}
 
-    win = acquire_window()
+    def do_stop():
+        state["stop"] = True
+
+    def toggle_pause():
+        state["paused"] = not state["paused"]
+        if state["paused"]:
+            log(f">>> PAUSED. Your mouse/keyboard are yours again. "
+                f"Press {config.PAUSE_HOTKEY} to resume, {config.EMERGENCY_STOP_HOTKEY} to quit.")
+        else:
+            log(">>> RESUMED.")
+
+    keyboard.add_hotkey(config.EMERGENCY_STOP_HOTKEY, do_stop)
+    keyboard.add_hotkey(config.PAUSE_HOTKEY, toggle_pause)
+
+    acquire_window()  # verify the game is there before we start
     controller = Controller(config.KEYMAP, config.PRESS_DURATION, config.BETWEEN_PRESSES)
     brain = build_brain()
 
-    log(f"Emergency stop: {config.EMERGENCY_STOP_HOTKEY} (or Ctrl+C).")
+    log("=" * 60)
+    log("HOW TO STOP / PAUSE (these work even while the game is on top):")
+    log(f"   STOP  : {config.EMERGENCY_STOP_HOTKEY}   (or just close the game window)")
+    log(f"   PAUSE : {config.PAUSE_HOTKEY}   (frees your mouse; press again to resume)")
+    log("=" * 60)
     log("Starting in 3 seconds -- click the game window now so it has focus.")
     time.sleep(3)
 
     step = 0
-    while not stop["flag"]:
+    while not state["stop"]:
+        if state["paused"]:
+            time.sleep(0.2)          # idle without touching focus, keys, or the game
+            continue
         if max_steps is not None and step >= max_steps:
             log(f"Reached step limit ({max_steps}). Stopping.")
             break
+
+        # Re-find the game each turn: this tracks the window if it moves, and if
+        # the game has been closed we stop cleanly instead of flailing.
+        win = capture.find_window(config.GAME_WINDOW_TITLE)
+        if win is None:
+            log("Game window is gone (closed?). Stopping.")
+            break
+
         step += 1
         try:
             capture.focus_window(win)
