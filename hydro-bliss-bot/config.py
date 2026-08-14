@@ -82,3 +82,11 @@ PAUSE_HOTKEY = "ctrl+alt+p"
 # Max number of look-and-act cycles before the bot stops on its own (a safety
 # cap so it can't run forever unattended). None = no limit.
 MAX_STEPS = None
+
+# --- Review folder ---------------------------------------------------------
+# The bot periodically drops a screenshot + a one-line note into this folder so
+# you can check on it: open the folder, grab the newest picture and the log,
+# and paste them into Claude for a course-correction.
+REVIEW_DIR = "review"
+SNAPSHOT_EVERY = float(os.getenv("SNAPSHOT_EVERY", "180"))  # seconds between review snapshots
+REVIEW_KEEP = 300  # keep at most this many snapshots (older ones are deleted)

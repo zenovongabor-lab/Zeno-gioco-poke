@@ -10,17 +10,43 @@ Stop at any time with the emergency hotkey (default Ctrl+Alt+Q) or Ctrl+C.
 """
 
 import argparse
+import glob
+import os
 import sys
 import time
 from datetime import datetime
 
 import config
 import capture
-from controls import Controller
 
 
 def log(msg):
     print(f"[{datetime.now():%H:%M:%S}] {msg}", flush=True)
+
+
+def save_review_snapshot(img, decision):
+    """Drop a screenshot + a one-line note into the review folder, and prune old ones.
+
+    This is what you send to Claude at your twice-a-day check-ins: open the
+    review folder, grab the newest .png and the last few lines of log.txt.
+    """
+    os.makedirs(config.REVIEW_DIR, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    img.save(os.path.join(config.REVIEW_DIR, f"snap-{stamp}.png"))
+
+    acts = " ".join(f"{a['button']}x{a.get('presses', 1)}" for a in decision.get("actions", []))
+    note = (f"[{datetime.now():%Y-%m-%d %H:%M:%S}] saw: {decision.get('screen', '?')[:90]} "
+            f"| plan: {decision.get('plan', '')[:80]} | did: {acts}\n")
+    with open(os.path.join(config.REVIEW_DIR, "log.txt"), "a", encoding="utf-8") as fh:
+        fh.write(note)
+
+    # Keep only the newest REVIEW_KEEP snapshots so months of play don't fill the disk.
+    snaps = sorted(glob.glob(os.path.join(config.REVIEW_DIR, "snap-*.png")))
+    for old in snaps[:-config.REVIEW_KEEP]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
 
 
 def acquire_window():
@@ -114,7 +140,11 @@ def play(max_steps):
     log("Starting in 3 seconds -- click the game window now so it has focus.")
     time.sleep(3)
 
+    log(f"Review snapshots -> ./{config.REVIEW_DIR}/ every {int(config.SNAPSHOT_EVERY)}s "
+        f"(send the newest ones to Claude at your check-ins).")
+
     step = 0
+    last_snapshot = 0.0
     while not state["stop"]:
         if state["paused"]:
             time.sleep(0.2)          # idle without touching focus, keys, or the game
@@ -145,6 +175,12 @@ def play(max_steps):
             log(f"      -> {acts}")
 
             controller.run_actions(decision["actions"])
+
+            now = time.monotonic()
+            if now - last_snapshot >= config.SNAPSHOT_EVERY:
+                save_review_snapshot(img, decision)
+                last_snapshot = now
+
             time.sleep(config.STEP_DELAY)
         except KeyboardInterrupt:
             log("Ctrl+C -- stopping.")

@@ -21,14 +21,29 @@ import urllib.request
 
 from PIL import ImageChops
 
+TYPE_CHART = (
+    "TYPE CHART (attacking type -> super effective against; pick moves that are super effective):\n"
+    "Fire: Grass, Ice, Bug, Steel. Water: Fire, Ground, Rock. Grass: Water, Ground, Rock. "
+    "Electric: Water, Flying (no effect on Ground). Ice: Grass, Ground, Flying, Dragon. "
+    "Fighting: Normal, Ice, Rock, Dark, Steel (no effect on Ghost). Poison: Grass, Fairy (no effect on Steel). "
+    "Ground: Fire, Electric, Poison, Rock, Steel (no effect on Flying). Flying: Grass, Fighting, Bug. "
+    "Psychic: Fighting, Poison (no effect on Dark). Bug: Grass, Psychic, Dark. Rock: Fire, Ice, Flying, Bug. "
+    "Ghost: Psychic, Ghost (no effect on Normal). Dragon: Dragon (no effect on Fairy). "
+    "Dark: Psychic, Ghost. Steel: Ice, Rock, Fairy. Fairy: Fighting, Dragon, Dark. Normal: nothing (no effect on Ghost)."
+)
+
 SYSTEM = (
     "You are playing the game Pokemon Hydro Bliss. You see one screenshot and choose "
     "ONE controller input. Controls: a = confirm/advance text/select/attack, "
-    "b = cancel/back, up/down/left/right = move or navigate menus, start = open menu. "
-    "In battle, read the situation and pick a good move (type matchups matter). "
-    "In the overworld, move toward unexplored areas, doors, and NPCs. "
-    "Reply ONLY with JSON: "
-    '{"screen":"<what you see>","reason":"<why>","button":"<one of a,b,up,down,left,right,start>","presses":<1-6>}'
+    "b = cancel/back, up/down/left/right = move or navigate menus, start = open menu.\n"
+    "In BATTLE: identify your Pokemon's type and the enemy's type, then choose the move that is "
+    "SUPER EFFECTIVE using the type chart below. If you just lost (screen faded / you were sent to a "
+    "Pokemon Center), you need to heal and train before trying that fight again.\n"
+    "In the OVERWORLD: move toward unexplored areas, doors, stairs, and NPCs.\n\n"
+    + TYPE_CHART +
+    "\n\nReply ONLY with JSON: "
+    '{"screen":"<what you see>","reason":"<why, mention types if in battle>",'
+    '"button":"<one of a,b,up,down,left,right,start>","presses":<1-6>}'
 )
 
 
