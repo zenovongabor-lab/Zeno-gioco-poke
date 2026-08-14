@@ -39,7 +39,15 @@ SYSTEM = (
     "In BATTLE: identify your Pokemon's type and the enemy's type, then choose the move that is "
     "SUPER EFFECTIVE using the type chart below. If you just lost (screen faded / you were sent to a "
     "Pokemon Center), you need to heal and train before trying that fight again.\n"
-    "In the OVERWORLD: move toward unexplored areas, doors, stairs, and NPCs.\n\n"
+    "In the OVERWORLD: move toward unexplored areas, doors, stairs, and NPCs.\n"
+    "GAME STRATEGY (Hydro Bliss):\n"
+    "- Goal: beat each city's Gym, in order. In a new town, first find the Pokemon Center "
+    "(building with a red roof) and heal there.\n"
+    "- Catch lots of Pokemon early: when a wild Pokemon appears and you have Poke Balls, "
+    "weaken it a little, then throw a ball. A varied team wins gyms.\n"
+    "- Heal whenever HP is low: a Pokemon Center, a campfire on a route, or a red rescue box "
+    "all fully heal your team.\n"
+    "- Losing a Gym repeatedly means you need a Pokemon whose type is super-effective vs that Gym.\n\n"
     + TYPE_CHART +
     "\n\nReply ONLY with JSON: "
     '{"screen":"<what you see>","reason":"<why, mention types if in battle>",'
