@@ -23,12 +23,12 @@ MODEL = os.getenv("BOT_MODEL", "claude-sonnet-5")
 
 # --- Window / timing -------------------------------------------------------
 GAME_WINDOW_TITLE = os.getenv("GAME_WINDOW_TITLE", "Hydro Bliss")
-STEP_DELAY = float(os.getenv("STEP_DELAY", "1.2"))  # seconds between "look and act" cycles
+STEP_DELAY = float(os.getenv("STEP_DELAY", "0.35"))  # seconds between "look and act" cycles
 
 # How long each key is physically held down, and the gap between taps.
 # Pokemon Essentials games need a key held long enough to register (~one frame+).
-PRESS_DURATION = 0.09
-BETWEEN_PRESSES = 0.13
+PRESS_DURATION = 0.06
+BETWEEN_PRESSES = 0.07
 
 # --- Key mapping -----------------------------------------------------------
 # Left side = the abstract button the AI thinks in.

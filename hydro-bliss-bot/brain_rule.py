@@ -1,87 +1,72 @@
-"""A free, no-API 'brain' for the bot.
+"""Free, no-API 'brain': a fast A-masher with an unstuck reflex.
 
-It can't truly understand the screen, but it isn't fully blind either: it
-compares each frame to the previous one to guess what's happening, and reacts
-with simple, effective heuristics:
+Pressing A is the single most useful button in a Pokemon game: it advances
+dialogue, confirms menus, and in battle attacks with the first move. So this
+brain presses A on almost every turn. Only when the screen has been genuinely
+frozen for several turns in a row -- nothing it does changes anything -- does it
+assume it's standing still in the overworld and take a few exploratory steps to
+get unstuck.
 
-  - Screen barely changing  -> probably waiting for input: tap A (advance
-    dialogue / confirm menu / pick the first battle move). If tapping A stops
-    producing any change, we're likely free to walk, so it explores.
-  - Screen changing a little -> text is scrolling or a menu is moving: press A.
-  - Screen changing a lot    -> an animation/transition is playing: ease off.
+How it detects change matters. The game window is often mostly black (intros,
+transitions) with only a small text box moving. Averaging the whole frame would
+drown that out, so instead we count the FRACTION of pixels that changed
+noticeably. A scrolling line of text lights up plenty of pixels even if it's a
+small part of a big black screen.
 
-This "mash A, occasionally walk" strategy gets a Pokemon game through a
-surprising amount of its early parts, and spamming A in battle keeps attacking
-with the first move (which wins many early fights). It is not smart. It will get
-stuck on anything requiring real navigation or decisions.
-
-Thresholds (HIGH/LOW below) are the main thing to tune if it misbehaves.
+It has no understanding of the game. It gets through intros, menus, and easy
+battles; it gets stuck on anything needing real navigation or decisions.
 """
 
-from PIL import ImageChops, ImageStat
+from PIL import ImageChops
 
 
 class RuleBrain:
-    # Change thresholds, measured as the mean per-pixel brightness difference
-    # between two downscaled grayscale frames (0 = identical, ~255 = opposite).
-    HIGH = 12.0   # above this: a big animation/transition is happening
-    LOW = 2.0     # below this: the screen is essentially still
+    CHANGE_PX = 40          # per-pixel brightness delta (0-255) that counts as "changed"
+    IDENTICAL_FRAC = 0.002  # fewer than this fraction of pixels changed -> frozen frame
+    STUCK_TURNS = 6         # this many frozen turns in a row -> try to move
 
     def __init__(self, valid_buttons):
         self.valid_buttons = valid_buttons
         self.prev = None
-        self.idle_streak = 0                      # turns of "nothing changed while tapping A"
+        self.frozen = 0
         self.walk_dirs = ["up", "right", "down", "left"]
         self.walk_idx = 0
-        self.turn = 0
 
     @staticmethod
     def _thumb(image):
-        # Small + grayscale = fast, and ignores tiny cosmetic flicker.
-        return image.convert("L").resize((80, 60))
+        return image.convert("L").resize((96, 72))
 
-    @staticmethod
-    def _change(a, b):
-        return ImageStat.Stat(ImageChops.difference(a, b)).mean[0]
+    @classmethod
+    def _changed_fraction(cls, a, b):
+        diff = ImageChops.difference(a, b)
+        hist = diff.histogram()                 # 256 bins for an "L" image
+        changed = sum(hist[cls.CHANGE_PX:])     # pixels that changed >= CHANGE_PX
+        return changed / float(a.width * a.height)
 
     def _act(self, note, actions):
-        return {"screen": note, "plan": "free rule-based heuristic",
-                "actions": actions, "notebook": ""}
+        return {"screen": note, "plan": "free masher", "actions": actions, "notebook": ""}
 
     def decide(self, image):
-        self.turn += 1
         thumb = self._thumb(image)
-
         if self.prev is None:
             self.prev = thumb
-            return self._act("first frame -> tap A", [{"button": "a", "presses": 2}])
+            return self._act("start -> A", [{"button": "a", "presses": 2}])
 
-        change = self._change(self.prev, thumb)
+        frac = self._changed_fraction(self.prev, thumb)
         self.prev = thumb
 
-        if change > self.HIGH:
-            # Something big is animating (battle intro, screen fade). Nudge once
-            # and let it play out.
-            self.idle_streak = 0
-            return self._act(f"busy (d{change:.1f}) -> tap A",
-                             [{"button": "a", "presses": 1}])
+        if frac < self.IDENTICAL_FRAC:
+            self.frozen += 1
+        else:
+            self.frozen = 0
 
-        if change > self.LOW:
-            # Text scrolling or a menu moving -> keep confirming/advancing.
-            self.idle_streak = 0
-            return self._act(f"text/menu (d{change:.1f}) -> A",
-                             [{"button": "a", "presses": 2}])
+        # Genuinely frozen for a while -> probably free to walk. Explore a bit.
+        if self.frozen >= self.STUCK_TURNS:
+            self.frozen = 0
+            direction = self.walk_dirs[self.walk_idx % len(self.walk_dirs)]
+            self.walk_idx += 1
+            return self._act(f"stuck -> explore {direction}",
+                             [{"button": direction, "presses": 2}, {"button": "a", "presses": 1}])
 
-        # Essentially static: either dialogue waiting for a press, or we're just
-        # standing in the overworld. Tap A a couple of times; if that changes
-        # nothing across several turns, assume we're free to move and explore.
-        self.idle_streak += 1
-        if self.idle_streak <= 2:
-            return self._act(f"idle (d{change:.1f}) -> tap A",
-                             [{"button": "a", "presses": 2}])
-
-        direction = self.walk_dirs[self.walk_idx % len(self.walk_dirs)]
-        self.walk_idx += 1
-        self.idle_streak = 0
-        return self._act(f"idle -> explore {direction}",
-                         [{"button": direction, "presses": 3}, {"button": "a", "presses": 1}])
+        # Default: keep advancing / confirming / attacking.
+        return self._act(f"advance ({frac*100:.1f}% moved) -> A", [{"button": "a", "presses": 2}])
