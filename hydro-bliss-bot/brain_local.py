@@ -60,13 +60,37 @@ class LocalBrain:
     CHANGE_PX = 40             # per-pixel delta that counts as changed
     FORCE_ANALYZE_AFTER = 4    # static turns before we wake the model to navigate
 
+    A_LOOP_LIMIT = 5   # this many A-presses in a row -> break out of the menu trap
+
     def __init__(self, url, model, valid_buttons):
         self.endpoint = url.rstrip("/") + "/api/chat"
         self.model = model
         self.valid_buttons = valid_buttons
         self.last_analyzed = None   # thumbnail of the frame the model last looked at
         self.static_count = 0
+        self.a_streak = 0           # consecutive turns we pressed A (menu-loop guard)
+        self.break_i = 0
         self.notebook = "(empty)"
+
+    def _anti_loop(self, decision):
+        """If A keeps getting pressed without escaping a menu, try Down / B instead.
+
+        This is what stops the 'keeps selecting the highlighted option forever'
+        loop (e.g. re-opening the Controls help over and over).
+        """
+        actions = decision.get("actions") or [{"button": "a"}]
+        first = actions[0].get("button", "a")
+        if first == "a":
+            self.a_streak += 1
+        else:
+            self.a_streak = 0
+        if self.a_streak >= self.A_LOOP_LIMIT:
+            self.a_streak = 0
+            breaker = "down" if self.break_i % 2 == 0 else "b"
+            self.break_i += 1
+            return self._act("A wasn't progressing -> break the menu loop",
+                             f"try {breaker} to escape", breaker, 1)
+        return decision
 
     @staticmethod
     def _thumb(image):
@@ -130,12 +154,14 @@ class LocalBrain:
             self.last_analyzed = thumb
             self.static_count = 0
             try:
-                return self._ask_model(image)
+                decision = self._ask_model(image)
             except Exception as exc:
                 # Ollama not running / model reply unparseable -> keep moving cheaply.
-                return self._act(f"local model unavailable ({type(exc).__name__})",
-                                 "falling back to tap A", "a", 2)
+                decision = self._act(f"local model unavailable ({type(exc).__name__})",
+                                     "falling back to tap A", "a", 2)
+        else:
+            # Nothing new since the model last looked: bridge cheaply with A.
+            self.static_count += 1
+            decision = self._act(f"unchanged (d{change*100:.1f}%) -> tap A", "bridge", "a", 2)
 
-        # Nothing new since the model last looked: bridge cheaply with A.
-        self.static_count += 1
-        return self._act(f"unchanged (d{change*100:.1f}%) -> tap A", "bridge", "a", 2)
+        return self._anti_loop(decision)
