@@ -73,8 +73,13 @@ def build_brain():
         from brain import ClaudeBrain
         log(f"Brain: Claude ({config.MODEL}).")
         return ClaudeBrain(config.ANTHROPIC_API_KEY, config.MODEL, config.VALID_BUTTONS)
+    if config.BRAIN == "local":
+        from brain_local import LocalBrain
+        log(f"Brain: local vision model '{config.OLLAMA_MODEL}' via Ollama ({config.OLLAMA_URL}). "
+            f"No API cost.")
+        return LocalBrain(config.OLLAMA_URL, config.OLLAMA_MODEL, config.VALID_BUTTONS)
     from brain_rule import RuleBrain
-    log("Brain: free rule-based (no API key, no cost).")
+    log("Brain: free rule-based (no model, no cost).")
     return RuleBrain(config.VALID_BUTTONS)
 
 

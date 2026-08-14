@@ -11,11 +11,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Brain -----------------------------------------------------------------
-# "rule"   = free, no API key. A "smart masher": advances dialogue, wins many
+# "rule"   = free, no model. A "smart masher": advances dialogue, wins many
 #            early battles by spamming the first move, wanders to explore.
-# "claude" = uses the Claude API to actually look at the screen and decide.
-#            Smarter, but needs an API key and costs money per turn.
+# "local"  = free, runs a vision model on YOUR GPU via Ollama. Actually looks
+#            at the screen and decides. No API key, no per-call cost.
+# "claude" = uses the Claude API. Smartest, but needs an API key and costs money.
 BRAIN = os.getenv("BOT_BRAIN", "rule")
+
+# --- Local model (only used when BRAIN = "local") --------------------------
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "minicpm-v")  # a small, screen-savvy vision model
 
 # --- API / model (only used when BRAIN = "claude") -------------------------
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
