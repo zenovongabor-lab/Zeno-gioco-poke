@@ -47,6 +47,22 @@ def test_capture():
     log("If it looks right, run:  python main.py")
 
 
+def build_controller():
+    """Pick the input method based on config.INPUT_METHOD."""
+    if config.INPUT_METHOD == "gamepad":
+        try:
+            from controls_gamepad import GamepadController
+        except Exception as exc:
+            log(f"Could not start the virtual controller: {exc}")
+            log("Make sure you ran:  pip install vgamepad   and installed the ViGEmBus driver.")
+            sys.exit(1)
+        log("Input: virtual Xbox controller.")
+        return GamepadController(config.PRESS_DURATION, config.BETWEEN_PRESSES)
+    from controls import Controller
+    log("Input: keyboard.")
+    return Controller(config.KEYMAP, config.PRESS_DURATION, config.BETWEEN_PRESSES)
+
+
 def build_brain():
     """Pick the brain based on config.BRAIN."""
     if config.BRAIN == "claude":
@@ -82,7 +98,7 @@ def play(max_steps):
     keyboard.add_hotkey(config.PAUSE_HOTKEY, toggle_pause)
 
     acquire_window()  # verify the game is there before we start
-    controller = Controller(config.KEYMAP, config.PRESS_DURATION, config.BETWEEN_PRESSES)
+    controller = build_controller()
     brain = build_brain()
 
     log("=" * 60)
@@ -111,7 +127,8 @@ def play(max_steps):
 
         step += 1
         try:
-            capture.focus_window(win)
+            if config.FOCUS_EACH_TURN:
+                capture.focus_window(win)
             img = capture.capture(win)
             img.save("logs/last-frame.png")
 

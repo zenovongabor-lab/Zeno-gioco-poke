@@ -21,6 +21,19 @@ BRAIN = os.getenv("BOT_BRAIN", "rule")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 MODEL = os.getenv("BOT_MODEL", "claude-sonnet-5")
 
+# --- Input method ----------------------------------------------------------
+# "gamepad"  = send a virtual Xbox controller (needs vgamepad + ViGEmBus driver).
+#              Required for games that ignore the keyboard, like Hydro Bliss.
+# "keyboard" = send keypresses (uses KEYMAP below).
+INPUT_METHOD = os.getenv("BOT_INPUT", "gamepad")
+
+# Force the game to the foreground each turn so it receives input. Keyboard
+# input needs this; the virtual controller usually does NOT (and skipping it
+# leaves your mouse free while the bot plays). Auto-chosen from INPUT_METHOD;
+# override by setting BOT_FOCUS=1 (always focus) or BOT_FOCUS=0 (never).
+_focus_env = os.getenv("BOT_FOCUS")
+FOCUS_EACH_TURN = (INPUT_METHOD == "keyboard") if _focus_env is None else (_focus_env == "1")
+
 # --- Window / timing -------------------------------------------------------
 GAME_WINDOW_TITLE = os.getenv("GAME_WINDOW_TITLE", "Hydro Bliss")
 STEP_DELAY = float(os.getenv("STEP_DELAY", "0.35"))  # seconds between "look and act" cycles
