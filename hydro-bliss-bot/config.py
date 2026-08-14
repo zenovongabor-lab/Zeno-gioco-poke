@@ -25,7 +25,7 @@ MODEL = os.getenv("BOT_MODEL", "claude-sonnet-5")
 # "gamepad"  = send a virtual Xbox controller (needs vgamepad + ViGEmBus driver).
 #              Required for games that ignore the keyboard, like Hydro Bliss.
 # "keyboard" = send keypresses (uses KEYMAP below).
-INPUT_METHOD = os.getenv("BOT_INPUT", "gamepad")
+INPUT_METHOD = os.getenv("BOT_INPUT", "keyboard")
 
 # Force the game to the foreground each turn so it receives input. Keyboard
 # input needs this; the virtual controller usually does NOT (and skipping it
@@ -55,8 +55,8 @@ KEYMAP = {
     "down": "down",
     "left": "left",
     "right": "right",
-    "a": "z",       # Confirm / interact / advance dialogue  (Essentials "C")
-    "b": "x",       # Cancel / back / run                     (Essentials "B")
+    "a": "space",   # Confirm / interact / advance dialogue  (Hydro Bliss uses Space)
+    "b": "x",       # Cancel / back / run
     "start": "enter",  # Open the pause menu
     "select": "backslash",
 }
