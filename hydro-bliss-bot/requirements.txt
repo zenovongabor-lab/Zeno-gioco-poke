@@ -1,0 +1,7 @@
+anthropic>=0.40
+mss>=9.0
+Pillow>=10.0
+PyGetWindow>=0.0.9
+pydirectinput>=1.0.4
+python-dotenv>=1.0
+keyboard>=0.13.5

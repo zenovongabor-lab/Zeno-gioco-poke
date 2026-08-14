@@ -1,0 +1,12 @@
+# Secrets — never commit your API key
+.env
+
+# Runtime screenshots / logs
+logs/*.png
+logs/*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
