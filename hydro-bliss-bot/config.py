@@ -10,7 +10,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- API / model -----------------------------------------------------------
+# --- Brain -----------------------------------------------------------------
+# "rule"   = free, no API key. A "smart masher": advances dialogue, wins many
+#            early battles by spamming the first move, wanders to explore.
+# "claude" = uses the Claude API to actually look at the screen and decide.
+#            Smarter, but needs an API key and costs money per turn.
+BRAIN = os.getenv("BOT_BRAIN", "rule")
+
+# --- API / model (only used when BRAIN = "claude") -------------------------
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 MODEL = os.getenv("BOT_MODEL", "claude-sonnet-5")
 

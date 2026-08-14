@@ -47,13 +47,22 @@ def test_capture():
     log("If it looks right, run:  python main.py")
 
 
-def play(max_steps):
-    if not config.ANTHROPIC_API_KEY:
-        log("No ANTHROPIC_API_KEY set. Copy .env.example to .env and add your key.")
-        sys.exit(1)
+def build_brain():
+    """Pick the brain based on config.BRAIN."""
+    if config.BRAIN == "claude":
+        if not config.ANTHROPIC_API_KEY:
+            log("BOT_BRAIN=claude but no ANTHROPIC_API_KEY set. Add your key to .env,")
+            log("or set BOT_BRAIN=rule for the free version.")
+            sys.exit(1)
+        from brain import ClaudeBrain
+        log(f"Brain: Claude ({config.MODEL}).")
+        return ClaudeBrain(config.ANTHROPIC_API_KEY, config.MODEL, config.VALID_BUTTONS)
+    from brain_rule import RuleBrain
+    log("Brain: free rule-based (no API key, no cost).")
+    return RuleBrain(config.VALID_BUTTONS)
 
-    # Imported here so --test-capture works even without the anthropic package.
-    from brain import ClaudeBrain
+
+def play(max_steps):
     import keyboard
 
     stop = {"flag": False}
@@ -61,9 +70,9 @@ def play(max_steps):
 
     win = acquire_window()
     controller = Controller(config.KEYMAP, config.PRESS_DURATION, config.BETWEEN_PRESSES)
-    brain = ClaudeBrain(config.ANTHROPIC_API_KEY, config.MODEL, config.VALID_BUTTONS)
+    brain = build_brain()
 
-    log(f"Playing with {config.MODEL}. Emergency stop: {config.EMERGENCY_STOP_HOTKEY} (or Ctrl+C).")
+    log(f"Emergency stop: {config.EMERGENCY_STOP_HOTKEY} (or Ctrl+C).")
     log("Starting in 3 seconds -- click the game window now so it has focus.")
     time.sleep(3)
 
