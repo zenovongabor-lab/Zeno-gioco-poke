@@ -12,6 +12,7 @@ Stop at any time with the emergency hotkey (default Ctrl+Alt+Q) or Ctrl+C.
 import argparse
 import glob
 import os
+import shutil
 import sys
 import time
 from datetime import datetime
@@ -152,9 +153,12 @@ def play(max_steps):
     while not state["stop"]:
         # Dead-simple, focus-proof stop: a file named STOP in the folder.
         if os.path.exists(config.STOP_FILE):
-            log(f"'{config.STOP_FILE}' file found -> stopping.")
-            try:
-                os.remove(config.STOP_FILE)
+            log(f"'{config.STOP_FILE}' found -> stopping.")
+            try:                                    # clean it up (file OR folder)
+                if os.path.isdir(config.STOP_FILE):
+                    shutil.rmtree(config.STOP_FILE)
+                else:
+                    os.remove(config.STOP_FILE)
             except OSError:
                 pass
             break
