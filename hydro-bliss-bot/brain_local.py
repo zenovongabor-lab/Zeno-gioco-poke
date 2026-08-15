@@ -1,19 +1,21 @@
 """Free, LOCAL vision brain — runs on YOUR GPU via Ollama. No API key, no cost.
 
 It sends game screenshots to a vision model running on your own machine and gets
-back a decision. It can't truly *learn*, but it's given three things that make it
-behave far less randomly:
+back a decision. It can't truly *learn*, but it's given memory and self-feedback
+so it behaves far less randomly:
 
   1. MEMORY  - each turn the model sees a short note of where it thinks it is and
-     its goal, plus what it did the last several turns. Context carries forward.
-  2. ORIENTATION - after a move, the bot checks whether the screen actually
-     changed. If a direction produced no movement it's a WALL: the bot remembers
-     it and stops ramming it, trying other directions instead.
-  3. A PUSH TO MOVE - the model is told that pressing A alone gets nowhere; to
-     progress it must walk with the arrows and follow paths/doors.
+     its goal, plus its last several turns. Context carries forward.
+  2. SELF-FEEDBACK - after every action the bot checks the screen and tags the
+     action "progressed" or "NO change". Actions that changed nothing become a
+     "dead-end / don't repeat" list the model sees. If it returns to a screen it
+     was on a few turns ago, it's told its recent moves made no real progress.
+  3. ORIENTATION - a move that produced no change is a WALL; the bot avoids
+     re-ramming it and tries other directions. It's also told plainly that
+     pressing A alone gets nowhere - the overworld needs walking.
 
-To stay fast it doesn't wake the model on every frame: a cheap frame-diff gates
-the expensive call (new/settled screen, or stuck), and bridges other frames.
+To stay fast it doesn't wake the model every frame: a cheap frame-diff gates the
+expensive call (new/settled screen, or stuck) and bridges other frames.
 """
 
 import base64
@@ -40,7 +42,8 @@ SYSTEM = (
     "b = cancel/back, up/down/left/right = MOVE the character or navigate menus, start = menu.\n"
     "IMPORTANT: pressing 'a' alone does not get you anywhere. To go somewhere you MUST walk with "
     "up/down/left/right and follow paths, doors and stairs. In the overworld, keep moving and "
-    "explore; do not stand still pressing a.\n"
+    "explore; do not stand still pressing a. Learn from the feedback you are given: if an action "
+    "made NO change, do something different.\n"
     "In BATTLE: identify your Pokemon's type and the enemy's type, then choose the move that is "
     "SUPER EFFECTIVE (see chart). If you just lost (screen faded / sent to a Pokemon Center), "
     "you must heal and train before that fight again.\n"
@@ -62,7 +65,7 @@ SYSTEM = (
 
 
 class LocalBrain:
-    CALL_THRESHOLD = 0.02      # fraction of pixels changed that counts as "a new situation"
+    CALL_THRESHOLD = 0.02      # fraction of pixels changed = "a new situation" / real progress
     CHANGE_PX = 40             # per-pixel delta that counts as changed
     IDENTICAL_FRAC = 0.002     # below this, the frame effectively did not change
     FORCE_ANALYZE_AFTER = 4    # static turns before we wake the model to navigate
@@ -73,14 +76,17 @@ class LocalBrain:
         self.endpoint = url.rstrip("/") + "/api/chat"
         self.model = model
         self.valid_buttons = valid_buttons
-        self.prev_thumb = None       # previous frame (for wall/blocked detection)
+        self.prev_thumb = None       # previous frame (outcome + wall detection)
         self.last_analyzed = None    # frame the model last looked at
+        self.history = []            # ring of recent thumbs (loop-back detection)
         self.static_count = 0
         self.a_streak = 0
         self.break_i = 0
         self.last_move = None        # last movement direction issued
+        self.last_summary = None     # "screen -> acts" of last turn, pending its outcome
         self.blocked = []            # directions that produced no movement (walls)
-        self.recent = []             # rolling memory of recent turns
+        self.dead_ends = []          # recent actions that changed nothing (don't repeat)
+        self.recent = []             # rolling memory of recent turns (with outcome tags)
         self.notebook = "start of the game"
 
     @staticmethod
@@ -102,26 +108,29 @@ class LocalBrain:
         button = button if button in self.valid_buttons else "a"
         presses = max(1, min(int(presses or 1), 6))
         return {"screen": note, "plan": plan,
-                "actions": [{"button": button, "presses": presses}],
-                "memory": memory}
+                "actions": [{"button": button, "presses": presses}], "memory": memory}
 
-    def _memory_block(self):
+    def _memory_block(self, loop_note):
         blocked = ", ".join(self.blocked) if self.blocked else "none"
         recent = " | ".join(self.recent[-6:]) if self.recent else "none yet"
+        dead = " ; ".join(self.dead_ends[-4:]) if self.dead_ends else "none"
+        extra = (loop_note + "\n") if loop_note else ""
         return (f"YOUR NOTES: {self.notebook}\n"
-                f"RECENT TURNS: {recent}\n"
-                f"WALLS (directions that did NOT move you last time -- do not keep going these ways): {blocked}\n"
+                f"RECENT TURNS (with outcome): {recent}\n"
+                f"THESE RECENTLY CHANGED NOTHING -- do NOT repeat them: {dead}\n"
+                f"WALLS (directions that did not move you): {blocked}\n"
+                f"{extra}"
                 "You must MOVE with the arrows to make progress; pressing a alone will not get you anywhere.\n"
                 "Here is the current screen. Choose one input.")
 
-    def _ask_model(self, image):
+    def _ask_model(self, image, loop_note):
         payload = json.dumps({
             "model": self.model,
             "format": "json",
             "stream": False,
             "messages": [
                 {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": self._memory_block(), "images": [self._b64(image)]},
+                {"role": "user", "content": self._memory_block(loop_note), "images": [self._b64(image)]},
             ],
         }).encode("utf-8")
         req = urllib.request.Request(self.endpoint, data=payload,
@@ -138,12 +147,8 @@ class LocalBrain:
         )
 
     def _anti_loop(self, decision):
-        """A/menu keeps not progressing -> try Down, B, then a couple of directions."""
         first = (decision.get("actions") or [{"button": "a"}])[0].get("button", "a")
-        if first == "a":
-            self.a_streak += 1
-        else:
-            self.a_streak = 0
+        self.a_streak = self.a_streak + 1 if first == "a" else 0
         if self.a_streak >= self.A_LOOP_LIMIT:
             self.a_streak = 0
             breaker = ["down", "b", "right", "up"][self.break_i % 4]
@@ -152,7 +157,6 @@ class LocalBrain:
         return decision
 
     def _navigate(self, decision):
-        """Avoid walls: if the chosen direction just failed, try another. Record moves."""
         actions = decision.get("actions") or []
         if actions:
             btn = actions[0].get("button")
@@ -162,30 +166,52 @@ class LocalBrain:
                         actions[0]["button"] = d
                         decision["plan"] = f"{btn} is a wall, going {d} instead"
                         break
-            self.last_move = actions[0].get("button") if actions[0].get("button") in self.DIRS else None
+            b = actions[0].get("button")
+            self.last_move = b if b in self.DIRS else None
         return decision
 
-    def _remember(self, decision):
-        if decision.get("memory"):
-            self.notebook = decision["memory"]
-        acts = " ".join(f"{a['button']}x{a.get('presses', 1)}" for a in decision.get("actions", []))
-        self.recent.append(f"{decision.get('screen', '?')[:45]} -> {acts}")
-        self.recent = self.recent[-8:]
+    def _score_last_action(self, thumb):
+        """Look at what the PREVIOUS action did to the screen and remember it."""
+        if self.prev_thumb is None:
+            return
+        change = self._changed_fraction(self.prev_thumb, thumb)
+        progressed = change >= self.CALL_THRESHOLD
 
-    def decide(self, image):
-        thumb = self._thumb(image)
-
-        # Did the LAST action change anything? A move that changed nothing hit a wall.
-        if self.prev_thumb is not None and self.last_move is not None:
-            if self._changed_fraction(self.prev_thumb, thumb) < self.IDENTICAL_FRAC:
+        # Wall detection for the last move.
+        if self.last_move is not None:
+            if change < self.IDENTICAL_FRAC:
                 if self.last_move not in self.blocked:
                     self.blocked.append(self.last_move)
             else:
-                self.blocked = []   # we actually moved -> forget old walls
+                self.blocked = []
+
+        # Tag the last action's outcome into memory.
+        if self.last_summary is not None:
+            tag = "progressed" if progressed else "NO change"
+            self.recent.append(f"{self.last_summary} [{tag}]")
+            self.recent = self.recent[-8:]
+            if not progressed:
+                self.dead_ends.append(self.last_summary)
+                self.dead_ends = self.dead_ends[-6:]
+
+    def _loop_note(self, thumb):
+        """If we're back on a screen from a few turns ago, our moves didn't progress."""
+        for old in self.history[:-3]:
+            if self._changed_fraction(old, thumb) < self.IDENTICAL_FRAC:
+                return ("You have returned to a screen you were on a few turns ago -- your recent "
+                        "actions did NOT make real progress. Try a clearly different direction or action.")
+        return ""
+
+    def decide(self, image):
+        thumb = self._thumb(image)
+        self._score_last_action(thumb)
+        loop_note = self._loop_note(thumb)
+
+        self.history.append(thumb)
+        self.history = self.history[-12:]
         self.prev_thumb = thumb
         self.last_move = None
 
-        # Wake the model on a genuinely new/settled screen, or when stuck.
         change = self._changed_fraction(self.last_analyzed, thumb) if self.last_analyzed is not None else 1.0
         wake = (self.last_analyzed is None
                 or change > self.CALL_THRESHOLD
@@ -195,7 +221,7 @@ class LocalBrain:
             self.last_analyzed = thumb
             self.static_count = 0
             try:
-                decision = self._ask_model(image)
+                decision = self._ask_model(image, loop_note)
             except Exception as exc:
                 decision = self._act(f"model unavailable ({type(exc).__name__})", "tap A", "a", 2)
         else:
@@ -204,5 +230,10 @@ class LocalBrain:
 
         decision = self._anti_loop(decision)
         decision = self._navigate(decision)
-        self._remember(decision)
+
+        # Carry memory + record this turn's summary (its outcome is scored next turn).
+        if decision.get("memory"):
+            self.notebook = decision["memory"]
+        acts = " ".join(f"{a['button']}x{a.get('presses', 1)}" for a in decision.get("actions", []))
+        self.last_summary = f"{decision.get('screen', '?')[:45]} -> {acts}"
         return decision
