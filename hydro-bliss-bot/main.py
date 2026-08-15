@@ -36,7 +36,8 @@ def save_review_snapshot(img, decision):
 
     acts = " ".join(f"{a['button']}x{a.get('presses', 1)}" for a in decision.get("actions", []))
     note = (f"[{datetime.now():%Y-%m-%d %H:%M:%S}] saw: {decision.get('screen', '?')[:90]} "
-            f"| plan: {decision.get('plan', '')[:80]} | did: {acts}\n")
+            f"| plan: {decision.get('plan', '')[:70]} | did: {acts} "
+            f"| notes: {(decision.get('memory') or '')[:80]}\n")
     with open(os.path.join(config.REVIEW_DIR, "log.txt"), "a", encoding="utf-8") as fh:
         fh.write(note)
 
