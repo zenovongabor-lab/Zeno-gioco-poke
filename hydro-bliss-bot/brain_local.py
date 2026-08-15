@@ -135,7 +135,7 @@ class LocalBrain:
         }).encode("utf-8")
         req = urllib.request.Request(self.endpoint, data=payload,
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=45) as resp:
             body = json.loads(resp.read().decode("utf-8"))
         data = json.loads(body.get("message", {}).get("content", "{}"))
         return self._act(

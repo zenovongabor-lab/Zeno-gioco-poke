@@ -79,6 +79,11 @@ EMERGENCY_STOP_HOTKEY = "ctrl+alt+q"
 # stops pressing keys, so your mouse and keyboard are yours again.
 PAUSE_HOTKEY = "ctrl+alt+p"
 
+# Dead-simple stop that needs no hotkey: if a file with this name appears in the
+# bot folder, the bot quits. Create it (e.g. right-click -> New -> Text Document,
+# name it STOP) to stop the bot even if you can't reach the terminal.
+STOP_FILE = "STOP"
+
 # Max number of look-and-act cycles before the bot stops on its own (a safety
 # cap so it can't run forever unattended). None = no limit.
 MAX_STEPS = None

@@ -134,9 +134,12 @@ def play(max_steps):
     brain = build_brain()
 
     log("=" * 60)
-    log("HOW TO STOP / PAUSE (these work even while the game is on top):")
-    log(f"   STOP  : {config.EMERGENCY_STOP_HOTKEY}   (or just close the game window)")
-    log(f"   PAUSE : {config.PAUSE_HOTKEY}   (frees your mouse; press again to resume)")
+    log("HOW TO STOP / TAKE CONTROL (no hotkeys needed):")
+    log("   TAKE CONTROL : click ANY other window -- the bot idles when the game")
+    log("                  isn't in front, and never steals focus. Click the game to resume.")
+    log(f"   STOP         : close the game window, OR create a file named "
+        f"'{config.STOP_FILE}' in this folder.")
+    log(f"   (also: {config.EMERGENCY_STOP_HOTKEY} / Ctrl+C if they work on your PC.)")
     log("=" * 60)
     log("Starting in 3 seconds -- click the game window now so it has focus.")
     time.sleep(3)
@@ -147,6 +150,14 @@ def play(max_steps):
     step = 0
     last_snapshot = 0.0
     while not state["stop"]:
+        # Dead-simple, focus-proof stop: a file named STOP in the folder.
+        if os.path.exists(config.STOP_FILE):
+            log(f"'{config.STOP_FILE}' file found -> stopping.")
+            try:
+                os.remove(config.STOP_FILE)
+            except OSError:
+                pass
+            break
         if state["paused"]:
             time.sleep(0.2)          # idle without touching focus, keys, or the game
             continue
@@ -161,10 +172,19 @@ def play(max_steps):
             log("Game window is gone (closed?). Stopping.")
             break
 
+        # Only act while the GAME is the active window. If you click any other
+        # window, the bot idles and never steals focus -- so you can always take
+        # control just by clicking away. (No forced focus, ever.)
+        try:
+            game_active = win.isActive
+        except Exception:
+            game_active = True
+        if not game_active:
+            time.sleep(0.3)
+            continue
+
         step += 1
         try:
-            if config.FOCUS_EACH_TURN:
-                capture.focus_window(win)
             img = capture.capture(win)
             img.save("logs/last-frame.png")
 
