@@ -46,3 +46,32 @@ IF defeated at Gym:
     IF NOT FOUND: CATCH_ON_ROUTE(super_effective_type) -> RETRY_GYM()
 DURING EXPLORATION: use CAMPFIRE / FIELD_RESCUE_PACKAGE whenever available to keep HP full.
 ```
+
+## 5. Game facts (from the v2 technical spec) — reference for check-ins
+> The v2 spec proposed a hardcoded step-count FSM. Hardcoded movement is too
+> brittle to rely on (one desync breaks the whole path), so we keep the *knowledge*
+> here for the human-in-the-loop, not as a blind script.
+
+**Controls (confirmed):** Confirm/interact = C / Space / Enter · Cancel/back/menu = X (Esc) ·
+Move = arrows · Run = hold Z (per the in-game controls screen) · Key item = F ·
+**Battle info = V** (opens detailed stats, elevation status, screen turns).
+
+**Two regions, 36 badges total:** Haido and Kosei, ending in Regional Championship tournaments.
+
+**Starters:** Rowlet (Grass), Litten (Fire), Popplio (Water).
+
+**Intro flow (bedroom → Route 1):**
+1. Pass intro logos / pick region (Haido or Kosei) with Confirm.
+2. Wake in bed → go downstairs → out the front door to the town.
+3. Enter the Professor's Lab → approach the starter table → pick Rowlet/Litten/Popplio →
+   skip the nickname screen.
+4. Win Rival Battle #1 (early on, spamming the first attack usually wins).
+5. Leave town north to Route 1 → normal exploration begins.
+
+**Battle tip — Elevation:** press **V** to check the target's elevation. If it's **Airborne**
+(winged / Levitate), **Ground-type moves do nothing** — pick a different move.
+
+**Loop after that:** OVERWORLD (explore + catch + rest at campfires/rescue boxes) →
+new TOWN (heal at the Center = sets respawn) → GYM (fight leader) → on repeated DEFEAT,
+identify the gym's type, pull a super-effective Pokémon from the PC Box or catch one on a
+nearby route, then retry.
