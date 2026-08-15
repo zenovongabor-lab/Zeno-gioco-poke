@@ -49,9 +49,12 @@ SYSTEM = (
     "all fully heal your team.\n"
     "- Losing a Gym repeatedly means you need a Pokemon whose type is super-effective vs that Gym.\n\n"
     + TYPE_CHART +
-    "\n\nReply ONLY with JSON: "
-    '{"screen":"<what you see>","reason":"<why, mention types if in battle>",'
-    '"button":"<one of a,b,up,down,left,right,start>","presses":<1-6>}'
+    "\n\nLook at the ACTUAL screenshot and reply with ONLY one JSON object. Fill every "
+    "field from what you really see -- do NOT copy the example words. 'button' must be "
+    "exactly one of: a, b, up, down, left, right, start.\n"
+    'Example (yours must describe the real screen): '
+    '{"screen":"overworld in a town, a red-roof building to the north","reason":"go heal '
+    'at the Pokemon Center","button":"up","presses":3}'
 )
 
 
