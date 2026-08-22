@@ -9,7 +9,8 @@ The whole game is a single self-contained file: [`index.html`](./index.html).
 ## How to play
 
 1. **Setup screen** — choose:
-   - **Player 2**: AI Rival or a second human (pass-and-play).
+   - **Player 2**: AI Rival, a second human (pass-and-play), 🌐 Online, or
+     🏆 **Campaign** (see below).
    - **No Go reroll**: once per round each player may reject a ball and open a
      different one (Off / 1 / 2 per round).
    - **Ending**: **Battle** (the two teams fight) or **Power total** (highest
@@ -26,6 +27,26 @@ The whole game is a single self-contained file: [`index.html`](./index.html).
 3. **Finish** — depending on your Ending choice you get a VS power scoreboard
    or a full turn-based battle with the real type chart, STAB, damage rolls,
    critical hits, HP bars, and faint-and-switch.
+
+## 🏆 Campaign mode — the 4 Rulers of the Draft
+
+Pick **Campaign** on the setup screen and you draft your team of six exactly
+like a normal duel — same draw style, region, and No-Go rules — then gear them
+up in the item bag. Instead of one rival, you then run a **gauntlet against the
+four Rulers of the Draft**, each a hand-built legendary team with its own
+signature battle style:
+
+| # | Ruler | Style | Ace |
+|---|-------|-------|-----|
+| 1 | The Absolute Champion | Mega Evolution | Mega Rayquaza |
+| 2 | The Dimensional Emperor | Terastallization | Tera Arceus (Primal Groudon + Kyogre) |
+| 3 | The Perfect Weapon | Z-Move | Ultra Necrozma |
+| 4 | The Unbeatable Strategist | Dynamax / Gigantamax | Gigantamax Charizard |
+
+Each Ruler has a real six-Pokémon roster with faithful movesets and abilities.
+Your team is **fully healed between Rulers** (its held items carry over). Lose,
+and you can retry the same Ruler with a fresh, healed team or redraft from
+scratch. Beat all four and you're crowned **champion of the Draft**.
 
 Pokémon data and artwork are pulled live from [PokéAPI](https://pokeapi.co/)
 (including Megas, Gigantamax forms, and shinies). If the network is blocked the

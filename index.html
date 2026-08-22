@@ -464,6 +464,41 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:.5px}
   *{animation-duration:.001ms !important;animation-iteration-count:1 !important}
   .ball{animation:none}
 }
+
+/* ---------- campaign mode ---------- */
+.campnote{background:rgba(255,203,5,.08);border:1px solid rgba(255,203,5,.28);border-radius:12px;
+  padding:11px 13px;margin-bottom:14px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.campnote b{color:var(--ink)}
+.cintro{text-align:center;padding:14px 6px 8px;animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.cprog{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px}
+.cdot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25)}
+.cdot.now{background:var(--rc,#ffcb05);box-shadow:0 0 10px var(--rc,#ffcb05);border-color:transparent}
+.cdot.done{background:#67ba43;border-color:transparent}
+.cproglbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-left:4px}
+.cbadge{display:inline-block;font-family:var(--display);font-size:12px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--rc,#ffcb05);border:1px solid var(--rc,#ffcb05);border-radius:999px;padding:4px 12px;margin-bottom:10px}
+.ctitle{font-family:var(--display);font-size:30px;line-height:1.05;margin:2px 0 6px;
+  color:#fff;text-shadow:0 2px 18px var(--rc2,#000)}
+.cace{font-size:13px;color:var(--muted);margin-bottom:12px}
+.cace b{color:var(--rc,#ffcb05)}
+.cquote{font-style:italic;font-size:15px;color:#fff;max-width:520px;margin:0 auto 8px;line-height:1.5}
+.cblurb{font-size:12.5px;color:var(--muted);max-width:520px;margin:0 auto 16px;line-height:1.5}
+.cteam{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;max-width:560px;margin:0 auto 20px}
+.cmon{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:12px;padding:6px 3px 5px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cmon img{width:100%;max-width:64px;aspect-ratio:1;object-fit:contain;image-rendering:auto}
+.cmon span{font-size:8.5px;line-height:1.1;color:var(--muted);text-align:center;word-break:break-word}
+.cbtn{background:linear-gradient(180deg,var(--rc,#ffcb05),var(--rc2,#a67c00));border:none}
+.cintro .cbtn{box-shadow:0 6px 22px -6px var(--rc,#ffcb05)}
+@media(max-width:520px){ .cteam{grid-template-columns:repeat(3,1fr)} .ctitle{font-size:24px} }
+.cnext{border:1px dashed var(--rc,#ffcb05);border-radius:12px;padding:9px 12px;margin:16px auto 4px;max-width:420px;
+  display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.03)}
+.cnext .cnextlbl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.cnext b{color:var(--rc,#ffcb05);font-size:15px}
+.cnext .cnextace{font-size:11.5px;color:var(--muted)}
+.crulerline{font-size:12px;margin:8px auto 4px;max-width:520px;line-height:1.6}
+.results.cwin .winner{text-shadow:0 2px 26px rgba(255,203,5,.6)}
 </style>
 </head>
 <body>
@@ -662,6 +697,7 @@ const S = {
   balls:[], activeIdx:null, busy:false,
   pokedex:[], apiOk:false, cache:{},
   speciesSet:null, speciesId:{}, meta:{}, pool:[],
+  campaign:null,
 };
 
 /* ---------------- audio ---------------- */
@@ -911,6 +947,7 @@ function render(){
   if(S.screen==="online")  return renderOnline();
   if(S.screen==="game")    return renderGame();
   if(S.screen==="itembag") return renderItemBag();
+  if(S.screen==="rulerintro") return renderRulerIntro();
   if(S.screen==="battle")  return S.bt?renderBattle():renderSetup();
   if(S.screen==="results") return renderResults();
 }
@@ -933,8 +970,14 @@ function renderSetup(){
           <div class="chip ${S.p2mode==="ai"?"on":""}" data-v="ai">AI Rival<small>Auto-drafts</small></div>
           <div class="chip ${S.p2mode==="human"?"on":""}" data-v="human">Human<small>Pass &amp; play</small></div>
           <div class="chip ${S.p2mode==="online"?"on":""}" data-v="online">🌐 Online<small>Play a friend</small></div>
+          <div class="chip ${S.p2mode==="campaign"?"on":""}" data-v="campaign">🏆 Campaign<small>Beat the 4 Rulers</small></div>
         </div>
       </div>
+
+      ${ S.p2mode==="campaign" ? `<div class="campnote">
+        <b>Campaign Mode.</b> Draft your team of six the usual way, gear them up — then take them
+        through a gauntlet against the <b>4 Rulers of the Draft</b>, each with a legendary team and a
+        signature battle style. You heal between Rulers. Beat all four to become champion.</div>` : "" }
 
       <div class="field">
         <label>No Go reroll <span class="hint">— once per round, per player</span></label>
@@ -1002,10 +1045,12 @@ function renderSetup(){
            <button class="btn" id="createLobby">Create lobby</button>
            <button class="btn ghost" id="enterLobby" style="margin-top:10px">Enter lobby</button>
            <div class="acct-err" id="onlineMsg" style="text-align:center"></div>`
+        : S.p2mode==="campaign"
+        ? `<button class="btn" id="startCampaign">Start Campaign 🏆</button>`
         : `<button class="btn" id="start">Start Duel</button>` }
       <div class="loadline" id="loadline"></div>
     </div>
-    <div class="foot">Poké Draft Duel · <b>v19 — online switch &amp; rematch</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
+    <div class="foot">Poké Draft Duel · <b>v20 — Campaign: the 4 Rulers</b> · draft six, gear up, then fight · fan project, not affiliated with Nintendo/Game Freak</div>
   `;
 
   // choice handlers
@@ -1026,6 +1071,7 @@ function renderSetup(){
   }
 
   const st=$("start"); if(st) st.onclick=startGame;
+  const sc=$("startCampaign"); if(sc) sc.onclick=startCampaign;
   const cl=$("createLobby"); if(cl) cl.onclick=onlineCreateFromSetup;
   const el=$("enterLobby");  if(el) el.onclick=onlineJoinFromSetup;
   bindAccountBar();
@@ -1128,7 +1174,9 @@ function updateBanner(){
 }
 function updateRosters(){
   const host=$("rosters"); host.innerHTML="";
+  const campDraft=(S.campaign&&S.campaign.active&&S.screen==="game");
   S.players.forEach((p,idx)=>{
+    if(campDraft&&idx===1) return;   // hide the Ruler slot while you draft your own six
     const r=document.createElement("div");
     r.className="roster"+(idx===S.cur?" active":"");
     const total=p.team.reduce((a,m)=>a+score(m),0);
@@ -1324,6 +1372,10 @@ async function aiTurn(){
 
 /* ---------- end turn / round ---------- */
 function endTurn(){
+  if(S.campaign&&S.campaign.active){   // campaign: only the challenger drafts their six
+    if(S.round>=6){ setTimeout(startItemPhase,500); return; }
+    S.round++; S.cur=0; setTimeout(beginTurn,450); return;
+  }
   if(S.online){   // online: only the local trainer drafts their own 6
     if(S.round>=6){ setTimeout(startItemPhase,500); return; }
     S.round++; S.cur=0; setTimeout(beginTurn,450); return;
@@ -1491,6 +1543,11 @@ function scaleStats(s,f){const o={};for(const k in s)o[k]=Math.max(1,Math.round(
 function seeded(id){let s=((id||1)*2654435761)%2147483647; if(s<=0)s+=2147483646;
   return ()=>((s=s*16807%2147483647)-1)/2147483646;}
 function assignMoves(mon){
+  if(mon._forceMoves&&mon._forceMoves.length){            // Campaign: hand-picked boss moveset (HB move keys)
+    const out=[];
+    for(const k of mon._forceMoves){ const mi=HB_MI[k]; const mv=(mi!=null)?hbBuildMove(mi):null; if(mv&&!out.some(o=>o.name===mv.name)) out.push(mv); }
+    if(out.length) return out.slice(0,4);
+  }
   const hb=hbMovesFor(mon); if(hb&&hb.length) return hb;   // real Hydro Bliss learnset
   const s=statSpread(mon), physBias=(s.atk>=s.spa);
   const rng=seeded(mon.id||101), chosen=[], used=new Set();
@@ -1845,12 +1902,14 @@ function renderItemBag(){
   });
   $("idone").onclick=()=>{
     if(S.online){ submitOnlineTeam(); return; }                 // online: send my team, wait for opponent
+    if(S.campaign&&S.campaign.active){ startCampaignBattle(); return; }
     if(side===0 && !S.players[1].ai){ S.itemSide=1; S.pickMon=null; renderItemBag(); }
     else startBattle();
   };
   $("iskip").onclick=()=>{
     team.forEach((m,i)=>clearItem(side,i));
     if(S.online){ submitOnlineTeam(); return; }
+    if(S.campaign&&S.campaign.active){ startCampaignBattle(); return; }
     if(side===0 && !S.players[1].ai){ S.itemSide=1; S.pickMon=null; renderItemBag(); }
     else startBattle();
   };
@@ -2388,6 +2447,7 @@ function scheduleAuto(){
 
 /* ---------- battle result ---------- */
 function showBattleResult(){
+  if(S.campaign&&S.campaign.active) return showCampaignResult();
   const bt=S.bt;
   const winName=bt.names[bt.winner];
   sfxWin(); confetti();
@@ -2429,6 +2489,236 @@ function showBattleResult(){
     S.round=1; S.cur=0; S.screen="game"; render(); beginTurn();
   };
   $("bmenu").onclick=()=>{ S.screen="setup"; render(); };
+}
+
+/* ============================================================
+   CAMPAIGN MODE — battle the 4 Rulers of the Draft
+   ============================================================ */
+// Each boss is a hand-built, battle-ready team. Stats are the real level-100
+// base stats of each form; moves are HB move-keys; abilities are HB codes.
+const RULERS=[
+  { title:"The Absolute Champion", theme:"Mega Evolution", ace:"Mega Rayquaza",
+    color:"#2fb170", color2:"#0d3d2a", emoji:"🐉",
+    blurb:"The first Ruler. Her Mega Rayquaza tears through anything left standing — set up, then sweep.",
+    quote:"“You drafted a team. I forged a legend. Show me what you cracked open.”",
+    team:[
+      {name:"rayquaza-mega", id:10079, display:"Mega Rayquaza", types:["dragon","flying"], ability:"DELTASTREAM", item:"mega",
+       stats:{hp:105,atk:180,def:100,spa:180,spd:100,spe:115}, moves:["DRAGONASCENT","VCREATE","EXTREMESPEED","DRAGONDANCE"]},
+      {name:"zacian-crowned", id:10188, display:"Zacian-Crowned", types:["fairy","steel"], ability:"INTREPIDSWORD",
+       stats:{hp:92,atk:170,def:115,spa:80,spd:115,spe:148}, moves:["BEHEMOTHBLADE","PLAYROUGH","CLOSECOMBAT","SWORDSDANCE"]},
+      {name:"calyrex-shadow", id:10194, display:"Calyrex-Shadow", types:["psychic","ghost"], ability:"GRIMNEIGH",
+       stats:{hp:100,atk:85,def:80,spa:165,spd:100,spe:150}, moves:["ASTRALBARRAGE","PSYSHOCK","NASTYPLOT","DRAININGKISS"]},
+      {name:"necrozma-ultra", id:10157, display:"Ultra Necrozma", types:["psychic","dragon"], ability:"NEUROFORCE",
+       stats:{hp:97,atk:167,def:97,spa:167,spd:97,spe:129}, moves:["PHOTONGEYSER","DRAGONPULSE","EARTHPOWER","SWORDSDANCE"]},
+      {name:"eternatus", id:890, display:"Eternatus", types:["poison","dragon"], ability:"PRESSURE",
+       stats:{hp:140,atk:85,def:95,spa:145,spd:95,spe:130}, moves:["DYNAMAXCANNON","SLUDGEBOMB","FLAMETHROWER","RECOVER"]},
+      {name:"arceus", id:493, display:"Arceus", types:["normal"], ability:"MULTITYPE",
+       stats:{hp:120,atk:120,def:120,spa:120,spd:120,spe:120}, moves:["EXTREMESPEED","SWORDSDANCE","RECOVER","SHADOWCLAW"]},
+    ]},
+  { title:"The Dimensional Emperor", theme:"Terastallization", ace:"Tera Arceus",
+    color:"#8a63d2", color2:"#2c1a52", emoji:"🌌",
+    blurb:"Master of weather and space. Primal Groudon and Primal Kyogre bend the battlefield to his will.",
+    quote:"“The weather, the terrain, the very rules — all of it answers to me.”",
+    team:[
+      {name:"groudon-primal", id:10078, display:"Primal Groudon", types:["ground","fire"], ability:"DROUGHT",
+       stats:{hp:100,atk:180,def:160,spa:150,spd:90,spe:90}, moves:["PRECIPICEBLADES","FIREPUNCH","STEALTHROCK","SWORDSDANCE"]},
+      {name:"kyogre-primal", id:10077, display:"Primal Kyogre", types:["water"], ability:"DRIZZLE",
+       stats:{hp:100,atk:150,def:90,spa:180,spd:160,spe:90}, moves:["ORIGINPULSE","THUNDER","ICEBEAM","CALMMIND"]},
+      {name:"calyrex-ice", id:10193, display:"Calyrex-Ice", types:["psychic","ice"], ability:"CHILLINGNEIGH",
+       stats:{hp:100,atk:165,def:150,spa:85,spd:130,spe:50}, moves:["GLACIALLANCE","HIGHHORSEPOWER","TRICKROOM","SWORDSDANCE"]},
+      {name:"miraidon", id:1008, display:"Miraidon", types:["electric","dragon"], ability:"HADRONENGINE",
+       stats:{hp:100,atk:85,def:100,spa:135,spd:115,spe:135}, moves:["ELECTRODRIFT","DRACOMETEOR","OVERHEAT","VOLTSWITCH"]},
+      {name:"zygarde-complete", id:718, display:"Zygarde-Complete", types:["dragon","ground"], ability:"POWERCONSTRUCT",
+       stats:{hp:216,atk:100,def:121,spa:91,spd:95,spe:85}, moves:["THOUSANDARROWS","COIL","REST","THOUSANDWAVES"]},
+      {name:"arceus", id:493, display:"Arceus", types:["normal"], ability:"MULTITYPE",
+       stats:{hp:120,atk:120,def:120,spa:120,spd:120,spe:120}, moves:["EXTREMESPEED","SWORDSDANCE","RECOVER","EARTHQUAKE"]},
+    ]},
+  { title:"The Perfect Weapon", theme:"Z-Move", ace:"Ultra Necrozma",
+    color:"#22b6c9", color2:"#0c3d45", emoji:"💠",
+    blurb:"Cold, precise, overwhelming. Every Pokémon is a finishing move waiting to happen.",
+    quote:"“There is no counterplay. There is only the light that burns the sky.”",
+    team:[
+      {name:"necrozma-ultra", id:10157, display:"Ultra Necrozma", types:["psychic","dragon"], ability:"NEUROFORCE",
+       stats:{hp:97,atk:167,def:97,spa:167,spd:97,spe:129}, moves:["PHOTONGEYSER","DRAGONPULSE","EARTHPOWER","SWORDSDANCE"]},
+      {name:"mewtwo-mega-y", id:10044, display:"Mega Mewtwo Y", types:["psychic"], ability:"INSOMNIA", item:"mega",
+       stats:{hp:106,atk:150,def:70,spa:194,spd:120,spe:140}, moves:["PSYSTRIKE","ICEBEAM","AURASPHERE","RECOVER"]},
+      {name:"koraidon", id:1007, display:"Koraidon", types:["fighting","dragon"], ability:"ORICHALCUMPULSE",
+       stats:{hp:100,atk:135,def:115,spa:85,spd:100,spe:135}, moves:["COLLISIONCOURSE","FLAREBLITZ","DRAGONCLAW","UTURN"]},
+      {name:"zamazenta-crowned", id:10189, display:"Zamazenta-Crowned", types:["fighting","steel"], ability:"DAUNTLESSSHIELD",
+       stats:{hp:92,atk:130,def:145,spa:80,spd:145,spe:128}, moves:["BEHEMOTHBASH","BODYPRESS","IRONDEFENSE","CRUNCH"]},
+      {name:"deoxys-attack", id:10001, display:"Deoxys-Attack", types:["psychic"], ability:"PRESSURE",
+       stats:{hp:50,atk:180,def:20,spa:180,spd:20,spe:150}, moves:["PSYCHOBOOST","SUPERPOWER","EXTREMESPEED","ICEBEAM"]},
+      {name:"yveltal", id:717, display:"Yveltal", types:["dark","flying"], ability:"DARKAURA",
+       stats:{hp:126,atk:131,def:95,spa:131,spd:98,spe:99}, moves:["OBLIVIONWING","DARKPULSE","ROOST","TAUNT"]},
+    ]},
+  { title:"The Unbeatable Strategist", theme:"Dynamax / Gigantamax", ace:"Gigantamax Charizard",
+    color:"#e8642a", color2:"#4d1c0a", emoji:"🔥",
+    blurb:"The final Ruler. Traps, prediction, and a Gigantamax Charizard that never stops burning. Beat this and you are the champion of the Draft.",
+    quote:"“Three fell before me. You will make four. Prove me wrong.”",
+    team:[
+      {name:"charizard-gmax", id:10196, display:"Gigantamax Charizard", types:["fire","flying"], ability:"SOLARPOWER", item:"gmax",
+       stats:{hp:78,atk:84,def:78,spa:109,spd:85,spe:100}, moves:["HURRICANE","FIREBLAST","FOCUSBLAST","ROOST"]},
+      {name:"calyrex-shadow", id:10194, display:"Calyrex-Shadow", types:["psychic","ghost"], ability:"GRIMNEIGH",
+       stats:{hp:100,atk:85,def:80,spa:165,spd:100,spe:150}, moves:["ASTRALBARRAGE","PSYSHOCK","DRAININGKISS","TRICK"]},
+      {name:"gengar-mega", id:10038, display:"Mega Gengar", types:["ghost","poison"], ability:"SHADOWTAG", item:"mega",
+       stats:{hp:60,atk:65,def:80,spa:170,spd:95,spe:130}, moves:["SHADOWBALL","SLUDGEWAVE","FOCUSBLAST","DESTINYBOND"]},
+      {name:"kyurem-white", id:10022, display:"Kyurem-White", types:["dragon","ice"], ability:"TURBOBLAZE",
+       stats:{hp:125,atk:120,def:90,spa:170,spd:100,spe:95}, moves:["ICEBURN","DRACOMETEOR","FUSIONFLARE","EARTHPOWER"]},
+      {name:"palafin-hero", id:964, display:"Palafin-Hero", types:["water"], ability:null,
+       stats:{hp:100,atk:160,def:97,spa:106,spd:87,spe:100}, moves:["AQUAJET","WAVECRASH","CLOSECOMBAT","FLIPTURN"]},
+      {name:"ditto", id:132, display:"Ditto", types:["normal"], ability:"IMPOSTER",
+       stats:{hp:48,atk:48,def:48,spa:48,spd:48,spe:48}},   // wildcard — auto-moveset
+    ]},
+];
+// Turn a Ruler spec into a draft-style mon object that makeBattler understands.
+function rulerMon(d){
+  const pn=parseName(d.name);
+  const st=d.stats, bst=st.hp+st.atk+st.def+st.spa+st.spd+st.spe;
+  const mon={ name:d.name, id:d.id, types:d.types.slice(), stats:{...st}, bst,
+              ability:d.ability||null, item:d.item||null, shiny:false,
+              mega:pn.mega, gmax:pn.gmax, variant:pn.variant,
+              display:d.display||pn.display };
+  mon.imgList=spriteUrls(d.id,false); mon.img=mon.imgList[0];
+  if(d.moves&&d.moves.length) mon._forceMoves=d.moves.slice();
+  return mon;
+}
+function buildRulerTeam(stage){ return RULERS[stage].team.map(rulerMon); }
+
+// Entry point from the setup screen.
+async function startCampaign(){
+  const n1=$("n1")?$("n1").value.trim():"";
+  S.p1name=n1||(S.p1name&&S.p1name!=="Player 1"?S.p1name:((ME&&ME.name)||"Challenger"));
+  S.online=false; S.net=null;
+  S.shinyRate=shinyRateFor(S.drawStyle);
+  S.campaign={stage:0, active:true, wins:0};
+  S.players=[
+    {name:S.p1name, ai:false, team:[], noGoRoundLeft:0},
+    {name:"Ruler", ai:true, team:[], noGoRoundLeft:0},
+  ];
+  S.round=1; S.cur=0; S.screen="game";
+  if(!S.pokedex.length){ const ll=$("loadline"); if(ll) ll.textContent="Loading Pokédex…"; await loadData(); }
+  computePool();
+  render();
+  beginTurn();
+}
+// After the player has drafted & geared up their six, meet the current Ruler.
+function startCampaignBattle(){
+  const stage=S.campaign.stage;
+  const R=RULERS[stage];
+  S.players[1]={name:R.title, ai:true, team:buildRulerTeam(stage), noGoRoundLeft:0};
+  S.screen="rulerintro"; render();
+}
+function renderRulerIntro(){
+  const stage=S.campaign.stage, R=RULERS[stage];
+  const team=S.players[1].team;
+  const dots=RULERS.map((_,i)=>`<span class="cdot ${i<stage?"done":i===stage?"now":""}"></span>`).join("");
+  const mons=team.map(m=>`<div class="cmon" title="${escapeHtml(m.display)}">
+      <img data-id="${m.id}" data-shiny="0" alt="${escapeHtml(m.display)}">
+      <span>${escapeHtml(m.display)}</span></div>`).join("");
+  $("app").classList.remove("wide");
+  $("app").innerHTML=`
+    <div class="cintro" style="--rc:${R.color};--rc2:${R.color2}">
+      <div class="cprog">${dots}<span class="cproglbl">Ruler ${stage+1} of 4</span></div>
+      <div class="cbadge">${R.emoji} ${escapeHtml(R.theme)}</div>
+      <h1 class="ctitle">${escapeHtml(R.title)}</h1>
+      <div class="cace">Ace: <b>${escapeHtml(R.ace)}</b></div>
+      <p class="cquote">${escapeHtml(R.quote)}</p>
+      <p class="cblurb">${escapeHtml(R.blurb)}</p>
+      <div class="cteam">${mons}</div>
+      <button class="btn cbtn" id="cfight">Battle ${escapeHtml(R.title)} ⚔️</button>
+      <button class="btn ghost" id="cquit" style="margin-top:10px">Give up the run</button>
+    </div>`;
+  hydrateSprites($("app"));
+  $("cfight").onclick=()=>{ startBattle(); };
+  $("cquit").onclick=()=>{ S.campaign.active=false; S.screen="setup"; render(); };
+}
+function showCampaignResult(){
+  const bt=S.bt, stage=S.campaign.stage, R=RULERS[stage];
+  const won=bt.winner===0;
+  recordResult(won);
+  const survivors=side=>bt.teams[side].filter(x=>!x.fainted).length;
+  const teamCell=(side)=>bt.teams[side].map(x=>
+    `<div class="vsmon ${x.mon.shiny?"shiny":""}" title="${escapeHtml(x.mon.display)}" style="${x.fainted?"opacity:.3;filter:grayscale(1)":""}">
+       <img data-id="${x.mon.id}" data-shiny="${x.mon.shiny?1:0}" alt=""></div>`).join("");
+  const dots=RULERS.map((_,i)=>`<span class="cdot ${(won?i<=stage:i<stage)?"done":i===stage?"now":""}"></span>`).join("");
+  $("app").classList.remove("wide");
+
+  if(won && stage>=RULERS.length-1){
+    // ---- CHAMPION! ----
+    S.campaign.active=false; S.campaign.wins=RULERS.length;
+    sfxWin(); confetti(); setTimeout(confetti,400); setTimeout(confetti,800);
+    $("app").innerHTML=`
+      <div class="results cwin" style="--rc:#ffcb05">
+        <div style="font-family:var(--display);color:var(--muted);letter-spacing:2px;font-size:13px">— THE DRAFT IS CONQUERED —</div>
+        <div class="winner">👑 ${escapeHtml(S.p1name)}</div>
+        <div style="color:var(--muted);font-size:14px">defeated all four Rulers of the Draft</div>
+        <div class="crulerline">${RULERS.map(r=>`<span style="color:${r.color}">${r.emoji} ${escapeHtml(r.title)}</span>`).join(" · ")}</div>
+        <div class="vs" style="justify-content:center">
+          <div class="vscol win"><h3>${escapeHtml(S.p1name)} — Champion</h3>
+            <div class="vsteam">${bt.teams[0].map(x=>`<div class="vsmon ${x.mon.shiny?"shiny":""}"><img data-id="${x.mon.id}" data-shiny="${x.mon.shiny?1:0}" alt=""></div>`).join("")}</div></div>
+        </div>
+        <button class="btn" id="cnew">New campaign</button>
+        <button class="btn ghost" id="cmenu" style="margin-top:10px">Back to menu</button>
+      </div>
+      <div class="foot">You out-drafted the four strongest trainers ever assembled. That team is legend.</div>`;
+    hydrateSprites($("app"));
+    $("cnew").onclick=()=>{ startCampaign(); };
+    $("cmenu").onclick=()=>{ S.campaign.active=false; S.screen="setup"; render(); };
+    return;
+  }
+
+  if(won){
+    // ---- beat this Ruler, more to come ----
+    S.campaign.wins=stage+1;
+    const next=RULERS[stage+1];
+    sfxWin(); confetti();
+    $("app").innerHTML=`
+      <div class="results" style="--rc:${R.color}">
+        <div class="cprog" style="justify-content:center;margin-bottom:6px">${dots}</div>
+        <div style="font-family:var(--display);color:var(--muted);letter-spacing:2px;font-size:13px">— RULER DEFEATED —</div>
+        <div class="winner" style="color:${R.color}">${R.emoji} ${escapeHtml(R.title)} falls!</div>
+        <div style="color:var(--muted);font-size:13px">${survivors(0)} of your Pokémon still standing · your team is healed before the next fight</div>
+        <div class="vs">
+          <div class="vscol win"><h3>${escapeHtml(S.p1name)}</h3><div class="vstotal">${survivors(0)}/6</div><div class="vsteam">${teamCell(0)}</div></div>
+          <div class="vsmid">beat</div>
+          <div class="vscol"><h3>${escapeHtml(R.title)}</h3><div class="vstotal">0/6</div><div class="vsteam">${teamCell(1)}</div></div>
+        </div>
+        <div class="cnext" style="--rc:${next.color}">
+          <span class="cnextlbl">Next Ruler ${stage+2}/4</span>
+          <b>${next.emoji} ${escapeHtml(next.title)}</b>
+          <span class="cnextace">Ace: ${escapeHtml(next.ace)} · ${escapeHtml(next.theme)}</span>
+        </div>
+        <button class="btn" id="cnext">Face ${escapeHtml(next.title)} →</button>
+        <button class="btn ghost" id="cmenu" style="margin-top:10px">Quit run</button>
+      </div>
+      <div class="foot">Your Pokémon and their items carry over — fully healed — into the next battle.</div>`;
+    hydrateSprites($("app"));
+    $("cnext").onclick=()=>{ S.campaign.stage++; startCampaignBattle(); };
+    $("cmenu").onclick=()=>{ S.campaign.active=false; S.screen="setup"; render(); };
+    return;
+  }
+
+  // ---- defeat ----
+  $("app").innerHTML=`
+    <div class="results" style="--rc:${R.color}">
+      <div class="cprog" style="justify-content:center;margin-bottom:6px">${dots}</div>
+      <div style="font-family:var(--display);color:var(--muted);letter-spacing:2px;font-size:13px">— DEFEATED —</div>
+      <div class="winner" style="color:${R.color}">${R.emoji} ${escapeHtml(R.title)} stands unbeaten</div>
+      <div style="color:var(--muted);font-size:13px">You reached Ruler ${stage+1} of 4. The Draft remembers.</div>
+      <div class="vs">
+        <div class="vscol"><h3>${escapeHtml(S.p1name)}</h3><div class="vstotal">${survivors(0)}/6</div><div class="vsteam">${teamCell(0)}</div></div>
+        <div class="vsmid">lost to</div>
+        <div class="vscol win"><h3>${escapeHtml(R.title)}</h3><div class="vstotal">${survivors(1)}/6</div><div class="vsteam">${teamCell(1)}</div></div>
+      </div>
+      <button class="btn" id="cretry">Try ${escapeHtml(R.title)} again</button>
+      <button class="btn ghost" id="cnew" style="margin-top:10px">New campaign — redraft</button>
+      <button class="btn ghost" id="cmenu" style="margin-top:10px">Back to menu</button>
+    </div>
+    <div class="foot">Same team, fresh and fully healed — tweak your strategy and go again.</div>`;
+  hydrateSprites($("app"));
+  $("cretry").onclick=()=>{ startCampaignBattle(); };
+  $("cnew").onclick=()=>{ startCampaign(); };
+  $("cmenu").onclick=()=>{ S.campaign.active=false; S.screen="setup"; render(); };
 }
 
 /* ============================================================
