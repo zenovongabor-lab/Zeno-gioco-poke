@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut">
+<title>Plunge · the daily dive</title>
+<meta name="description" content="A daily trivia dive where the rarest answers take you deepest.">
+<meta name="theme-color" content="#0a3a5c">
+<style>
+  :root {
+    --ink: #eaf7ff;
+    --muted: #9cc3d8;
+    --card: rgba(4, 22, 38, .62);
+    --line: rgba(160, 220, 255, .22);
+    --accent: #5ee6d0;
+    --warn: #ff7a6b;
+    --t0: #6b7c88;   /* miss */
+    --t1: #8fd3ff;   /* plankton */
+    --t2: #5ee6d0;   /* schooler */
+    --t3: #b98cff;   /* rare */
+    --t4: #ff9de2;   /* deep cut */
+    --t5: #ffd36b;   /* abyssal */
+    --sea: #4fb8e0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--sea);
+    color: var(--ink);
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    transition: background-color 1.6s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #sea {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25));
+    overflow: hidden;
+  }
+  #rays {
+    position: absolute; inset: -20% -10% auto -10%; height: 70%;
+    background: repeating-linear-gradient(100deg, rgba(255,255,255,.07) 0 40px, transparent 40px 110px);
+    filter: blur(6px); transition: opacity 1.6s;
+    animation: sway 9s ease-in-out infinite alternate;
+  }
+  @keyframes sway { from { transform: translateX(-30px) skewX(-4deg); } to { transform: translateX(30px) skewX(4deg); } }
+  .bubble {
+    position: absolute; bottom: -20px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.45); background: rgba(255,255,255,.06);
+    animation: rise linear forwards;
+  }
+  @keyframes rise { to { transform: translate(var(--dx), -115vh); opacity: .1; } }
+  .critter {
+    position: absolute; font-size: 34px; opacity: .55; filter: saturate(.7);
+    animation: swim linear forwards;
+  }
+  @keyframes swim { from { transform: translateX(-12vw) scaleX(var(--flip)); } to { transform: translateX(112vw) scaleX(var(--flip)); } }
+  .critter.glow { filter: drop-shadow(0 0 10px #8ff) saturate(1.2); opacity: .8; }
+
+  #app {
+    position: relative; z-index: 1; min-height: 100%;
+    max-width: 560px; margin: 0 auto; padding: 16px 16px 40px;
+    display: flex; flex-direction: column;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+  .logo { font-weight: 900; letter-spacing: .02em; font-size: 22px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .logo svg { width: 28px; height: 28px; }
+  .depthpill {
+    font-variant-numeric: tabular-nums; background: var(--card); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: 14px; white-space: nowrap;
+    backdrop-filter: blur(6px);
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 22px;
+    padding: 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 18px 50px rgba(0,0,0,.25);
+  }
+  h1 { font-size: clamp(40px, 12vw, 64px); line-height: .95; margin: 8px 0 6px; letter-spacing: -.02em; font-weight: 900; }
+  h2 { margin: 0 0 8px; font-size: 22px; }
+  p { line-height: 1.5; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  button {
+    font: inherit; cursor: pointer; border: 0; border-radius: 16px; padding: 14px 18px;
+    font-weight: 800; font-size: 16px; color: #022; background: var(--accent);
+    transition: transform .08s, filter .2s;
+  }
+  button:active { transform: scale(.97); }
+  button:disabled { filter: grayscale(1) brightness(.7); cursor: default; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.big { width: 100%; padding: 18px; font-size: 18px; }
+  .stack { display: grid; gap: 10px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1; }
+  .packs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pack { text-align: left; background: rgba(255,255,255,.08); color: var(--ink); border: 1px solid var(--line); padding: 14px; }
+  .pack b { display: block; font-size: 15px; }
+  .pack span { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .pack i { font-style: normal; font-size: 22px; display: block; margin-bottom: 4px; }
+
+  .tiers { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+  .tiers li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-weight: 800; font-size: 13px; color: #021; }
+
+  /* play */
+  .meta { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); font-weight: 700; margin-bottom: 10px; }
+  .dots { display: flex; gap: 5px; }
+  .dots span { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.18); }
+  .dots span.on { background: var(--ink); }
+  .prompt-wrap { display: flex; align-items: center; gap: 16px; }
+  .prompt { font-size: clamp(24px, 7vw, 34px); font-weight: 900; line-height: 1.1; flex: 1; margin: 4px 0; }
+  .cat { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 800; color: var(--accent); }
+  .timer { position: relative; width: 74px; height: 74px; flex: none; }
+  .timer svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+  .timer circle { fill: none; stroke-width: 7; }
+  .timer .track { stroke: rgba(255,255,255,.14); }
+  .timer .bar { stroke: var(--accent); stroke-linecap: round; transition: stroke .3s; }
+  .timer b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .timer.low .bar { stroke: var(--warn); }
+  .timer.low b { color: var(--warn); animation: pulse .5s ease-in-out infinite alternate; }
+  @keyframes pulse { to { transform: scale(1.15); } }
+  form { display: flex; gap: 8px; margin-top: 16px; }
+  input[type=text] {
+    flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; color: var(--ink);
+    background: rgba(255,255,255,.1); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  input::placeholder { color: rgba(234,247,255,.4); }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+  .feedback { min-height: 22px; margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--warn); }
+  .tried { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .tried span { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(255,122,107,.18); color: #ffc2ba; text-decoration: line-through; }
+  .skip { margin-top: 12px; background: none; color: var(--muted); font-size: 13px; padding: 6px; text-decoration: underline; }
+
+  /* reveal */
+  .reveal { text-align: center; }
+  .reveal .you { font-size: 30px; font-weight: 900; margin: 6px 0; text-transform: capitalize; }
+  .reveal .chip { font-size: 16px; padding: 6px 14px; }
+  .reveal .pts { font-size: 54px; font-weight: 900; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+  .reveal .meters { color: var(--muted); font-weight: 700; }
+  .spectrum { margin-top: 16px; text-align: left; display: grid; gap: 8px; }
+  .spectrum div { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
+  .spectrum .chip { font-size: 11px; padding: 2px 8px; flex: none; min-width: 84px; justify-content: center; }
+  .spectrum span.ex { color: var(--ink); text-transform: capitalize; }
+  .pop { animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { from { transform: scale(.5); opacity: 0; } }
+
+  /* results */
+  .grid-emoji { font-size: 30px; letter-spacing: 4px; margin: 6px 0; }
+  .bigdepth { font-size: clamp(48px, 15vw, 76px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+  .zone { font-weight: 800; color: var(--accent); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin: 14px 0; }
+  .stats b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stats span { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .log { display: grid; gap: 6px; margin-top: 10px; text-align: left; }
+  .log div { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .log div em { font-style: normal; color: var(--muted); text-transform: capitalize; }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9;
+    background: #fff; color: #022; font-weight: 800; padding: 10px 16px; border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3); animation: pop .3s;
+  }
+
+  /* depth gauge */
+  #gauge {
+    position: fixed; right: 10px; top: 80px; bottom: 80px; width: 6px; z-index: 1;
+    background: rgba(255,255,255,.15); border-radius: 6px;
+  }
+  #gauge .sub {
+    position: absolute; right: -6px; width: 18px; height: 18px; transform: translateY(-50%);
+    transition: top 1.6s cubic-bezier(.3,.9,.3,1);
+  }
+  #gauge .tick { position: absolute; right: 10px; font-size: 9px; color: rgba(255,255,255,.5); font-weight: 800; transform: translateY(-50%); white-space: nowrap; }
+  @media (max-width: 620px) { #gauge { display: none; } }
+  @media (prefers-reduced-motion: reduce) { #rays, .bubble, .critter { animation: none !important; display: none; } }
+</style>
+</head>
+<body>
+<div id="sea"><div id="rays"></div></div>
+<div id="gauge"></div>
+<div id="app"></div>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ * Answer bank. Each prompt: [pack, question, plankton, schooler, rare,
+ * deep cut, abyssal]. Tiers are comma lists; "/" separates aliases.
+ * The abyssal tier holds a single answer worth the full 100 points.
+ * ------------------------------------------------------------------ */
+const BANK = [
+['food','Name a fruit',
+ 'apple,banana,orange,grape/grapes,strawberry,pear',
+ 'mango,pineapple,watermelon,peach,cherry,kiwi,lemon,blueberry,plum',
+ 'papaya,pomegranate,apricot,fig,lychee/litchi,passion fruit,coconut,raspberry,nectarine,cantaloupe,grapefruit,lime,blackberry,guava,cranberry,avocado,tomato',
+ 'persimmon,quince,kumquat,starfruit/carambola,dragon fruit/pitaya,jackfruit,mangosteen,rambutan,gooseberry,loquat,pawpaw,tamarind,feijoa,ugli fruit,salak/snake fruit,cherimoya,physalis,medlar,soursop,yuzu,elderberry,mulberry,breadfruit,longan,ackee',
+ 'durian'],
+['nature','Name an animal that lives in the ocean',
+ 'shark,whale,dolphin,fish',
+ 'octopus,jellyfish,squid,seal,turtle/sea turtle,crab,starfish/sea star,lobster',
+ 'orca/killer whale,sea lion,manta ray/ray,stingray,eel,seahorse,clownfish,walrus,narwhal,coral,shrimp,krill,tuna,swordfish,barracuda,blue whale,hammerhead',
+ 'anglerfish,nudibranch,cuttlefish,sea cucumber,sea urchin,dugong,manatee,sea otter,blobfish,vampire squid,giant isopod,hagfish,lamprey,sunfish/mola mola/mola,oarfish,siphonophore,sea pen,gulper eel,anemone/sea anemone,barreleye,frilled shark,goblin shark,cookiecutter shark,sea butterfly,coelacanth,beluga',
+ 'dumbo octopus'],
+['nature','Name a planet or a moon',
+ 'earth,mars,jupiter,saturn,moon',
+ 'venus,mercury,neptune,uranus,pluto',
+ 'titan,europa,io,ganymede,callisto,phobos,deimos',
+ 'enceladus,triton,charon,miranda,oberon,titania,ariel,umbriel,mimas,iapetus,rhea,dione,hyperion,ceres,eris,makemake,haumea,sedna,nereid,phoebe,amalthea',
+ 'proteus'],
+['culture','Name a musical instrument',
+ 'guitar,piano,drums/drum',
+ 'violin,flute,trumpet,saxophone/sax,bass/bass guitar,cello,ukulele,harp,clarinet',
+ 'trombone,oboe,tuba,banjo,harmonica,accordion,xylophone,triangle,keyboard,mandolin,french horn/horn,bagpipes,organ,recorder,tambourine,synthesizer/synth,viola,double bass',
+ 'theremin,sitar,didgeridoo,bassoon,harpsichord,kalimba,hurdy gurdy,oud,koto,shamisen,balalaika,glockenspiel,marimba,tabla,erhu,bouzouki,ocarina,lute,zither,steelpan/steel drum,handpan/hang drum,celesta,cimbalom,bandoneon,duduk,kora,mbira,shakuhachi,contrabassoon,serpent,clavichord',
+ 'ondes martenot'],
+['words','Name a colour',
+ 'red,blue,green,yellow,black,white',
+ 'purple,orange,pink,brown,grey/gray',
+ 'turquoise,teal,magenta,cyan,violet,indigo,maroon,beige,navy,gold,silver,lavender,crimson,scarlet,lilac,cream',
+ 'vermilion,chartreuse,cerulean,ochre,mauve,puce,taupe,periwinkle,fuchsia,burgundy,aquamarine,sienna,umber,celadon,viridian,amaranth,cobalt,coral,sepia,ecru,carmine,saffron,ultramarine,heliotrope,cinnabar,gamboge,zaffre,isabelline,falu red,smalt',
+ 'eigengrau'],
+['words','Name a country in Europe',
+ 'france,germany,italy,spain,united kingdom/uk/england/great britain/britain',
+ 'portugal,greece,netherlands/holland,poland,sweden,norway,ireland,switzerland,belgium,austria',
+ 'denmark,finland,iceland,hungary,czech republic/czechia,croatia,romania,ukraine,scotland,wales,russia,turkey',
+ 'slovenia,slovakia,estonia,latvia,lithuania,moldova,belarus,bulgaria,serbia,albania,montenegro,bosnia/bosnia and herzegovina,north macedonia/macedonia,kosovo,luxembourg,malta,cyprus,monaco,andorra,liechtenstein,vatican/vatican city/holy see',
+ 'san marino'],
+['nature','Name a dog breed',
+ 'labrador/lab/labrador retriever,golden retriever,german shepherd,poodle,bulldog',
+ 'chihuahua,beagle,husky/siberian husky,pug,dachshund/sausage dog,rottweiler,corgi,pitbull/pit bull',
+ 'boxer,dalmatian,shih tzu,great dane,border collie,doberman,yorkie/yorkshire terrier,maltese,pomeranian,greyhound,saint bernard/st bernard,bichon frise,cocker spaniel,shiba inu,chow chow,french bulldog/frenchie,jack russell',
+ 'basenji,xoloitzcuintli/xolo,komondor,puli,saluki,borzoi,vizsla,weimaraner,whippet,akita,samoyed,newfoundland,bernese mountain dog,schipperke,lagotto romagnolo,otterhound,affenpinscher,leonberger,bergamasco,cane corso,keeshond,azawakh,bedlington terrier,spinone italiano,catalburun',
+ 'norwegian lundehund/lundehund'],
+['culture','Name a famous painter',
+ 'picasso/pablo picasso,van gogh/vincent van gogh,da vinci/leonardo/leonardo da vinci',
+ 'monet,michelangelo,rembrandt,frida kahlo/kahlo/frida,dali/salvador dali,warhol/andy warhol,raphael',
+ 'matisse,cezanne,renoir,degas,klimt,munch,vermeer,botticelli,caravaggio,pollock,rothko,magritte,kandinsky,hokusai,basquiat,georgia okeeffe/okeeffe,banksy',
+ 'hieronymus bosch/bosch,bruegel/brueghel,goya,el greco,turner,caspar david friedrich/friedrich,schiele,modigliani,mondrian,chagall,hopper/edward hopper,velazquez,titian,giotto,artemisia gentileschi/gentileschi,hilma af klint,paul klee/klee,de kooning,francis bacon,lucian freud,gerhard richter,bonnard,seurat,gauguin,toulouse lautrec,delacroix,ingres,courbet,manet,morandi,de chirico,hammershoi,piero della francesca',
+ 'agnes martin'],
+['culture','Name a philosopher',
+ 'plato,socrates,aristotle',
+ 'nietzsche,kant,descartes,confucius,marx/karl marx',
+ 'sartre,hume,locke,hobbes,rousseau,kierkegaard,hegel,spinoza,wittgenstein,machiavelli,aquinas/thomas aquinas,camus,voltaire,laozi/lao tzu,seneca,marcus aurelius',
+ 'heraclitus,parmenides,diogenes,epicurus,zeno,pythagoras,plotinus,leibniz,berkeley,schopenhauer,heidegger,husserl,merleau ponty,simone de beauvoir/de beauvoir/beauvoir,hannah arendt/arendt,foucault,derrida,deleuze,adorno,walter benjamin,zhuangzi/chuang tzu,nagarjuna,avicenna/ibn sina,averroes/ibn rushd,montaigne,pascal,bergson,william james,peirce,rawls,quine,kripke,levinas,zizek,hypatia,simone weil,epictetus,boethius',
+ 'anaximander'],
+['food','Name a vegetable',
+ 'carrot,broccoli,potato,lettuce,tomato',
+ 'onion,spinach,cucumber,corn,pepper/bell pepper,peas/pea,celery,cabbage,cauliflower',
+ 'zucchini/courgette,eggplant/aubergine,asparagus,kale,beet/beetroot,garlic,mushroom,radish,sweet potato,pumpkin,green beans/green bean,brussels sprouts/brussels sprout,leek,artichoke,squash',
+ 'kohlrabi,celeriac,parsnip,rutabaga/swede,turnip,okra,fennel,bok choy/pak choi,chard/swiss chard,salsify,jicama,romanesco,daikon,endive,radicchio,arugula/rocket,sunchoke/jerusalem artichoke,watercress,yam,taro,cassava,lotus root,fiddlehead,cardoon,puntarelle,mizuna,chayote,burdock',
+ 'samphire'],
+['play','Name a sport',
+ 'soccer/football,basketball,tennis,baseball',
+ 'golf,hockey/ice hockey,volleyball,swimming,rugby,cricket,boxing',
+ 'badminton,table tennis/ping pong,lacrosse,handball,wrestling,cycling,skiing,surfing,skateboarding,fencing,archery,rowing,gymnastics,polo,water polo,softball,karate,judo,american football',
+ 'curling,bobsled/bobsleigh,luge,skeleton,kabaddi,hurling,sepak takraw,jai alai,korfball,bandy,pelota,sumo,biathlon,pentathlon,canoe polo,underwater hockey,quidditch/quadball,bossaball,chess boxing,roller derby,ultimate/ultimate frisbee,petanque/boules,bocce,squash,netball,shinty,hornussen,calcio storico',
+ 'buzkashi'],
+['food','Name a breakfast food',
+ 'eggs/egg,pancakes/pancake,cereal,bacon,toast',
+ 'waffles/waffle,oatmeal/porridge,yogurt/yoghurt,french toast,bagel,croissant,sausage',
+ 'omelette/omelet,muffin,granola,hash browns,smoothie,avocado toast,eggs benedict,crepes/crepe,biscuits,fruit,coffee',
+ 'shakshuka,congee,kedgeree,black pudding,chilaquiles,huevos rancheros,dosa,idli,natto,miso soup,menemen,ful medames,khachapuri,kippers,grits,scrapple,poha,paratha,arepa,gallo pinto,muesli,pain au chocolat,cornetto,bircher,kaya toast,youtiao,lox',
+ 'tamagoyaki'],
+['nature','Name a bird',
+ 'eagle,robin,pigeon,crow,parrot',
+ 'owl,penguin,flamingo,hawk,sparrow,duck,swan,hummingbird,chicken,peacock',
+ 'blue jay,cardinal,falcon,ostrich,seagull/gull,pelican,woodpecker,raven,toucan,vulture,heron,stork,emu,kiwi,magpie,goose,turkey,dove,canary',
+ 'albatross,puffin,kingfisher,cassowary,shoebill,hoopoe,kakapo,lyrebird,nightingale,wren,starling,cormorant,condor,ibis,quetzal,bird of paradise,frigatebird,nuthatch,warbler,oriole,kestrel,osprey,roadrunner,dodo,kea,bee eater,lammergeier/bearded vulture,secretary bird,hoatzin,tui,bowerbird',
+ 'potoo'],
+['nature','Name a part of the human body',
+ 'arm,leg,head,hand,eye,foot',
+ 'nose,ear,mouth,finger,knee,heart,toe,elbow',
+ 'shoulder,neck,chin,lips/lip,tongue,brain,stomach,liver,lungs/lung,ankle,wrist,hip,eyebrow,kidney,skin,thumb',
+ 'spleen,pancreas,uvula,philtrum,clavicle/collarbone,sternum,femur,patella/kneecap,scapula,appendix,gallbladder,larynx,tibia,coccyx,cochlea,cornea,retina,diaphragm,epiglottis,thyroid,earlobe,cuticle,septum,achilles tendon,hyoid,lunula,hippocampus,tragus',
+ 'glabella'],
+['screen','Name a film with an animal in its title',
+ 'lion king,jaws,finding nemo',
+ 'babe,kung fu panda,jungle book,black swan,wolf of wall street,snakes on a plane,free willy,the birds',
+ 'silence of the lambs,moby dick,chicken run,bee movie,reservoir dogs,isle of dogs,war horse,fantastic mr fox,cat in the hat,shaggy dog,gorillas in the mist,black beauty,ugly duckling,planet of the apes,raging bull,mighty ducks,eight below,turtles,the lobster',
+ 'to kill a mockingbird,one flew over the cuckoos nest,deer hunter,the pelican brief,fox and the hound,maltese falcon,horse whisperer,elephant man,rabbit proof fence,white tiger,monkey business,owl and the pussycat,the swan princess,the bear,whale rider,the cow,bird people,dog day afternoon,the crying game,the wild robot',
+ 'the cranes are flying/cranes are flying'],
+['nature','Name a famous scientist',
+ 'einstein/albert einstein,newton/isaac newton,darwin/charles darwin',
+ 'tesla/nikola tesla,marie curie/curie,galileo,stephen hawking/hawking,edison',
+ 'copernicus,kepler,faraday,pasteur,mendel,bohr,heisenberg,feynman,turing,oppenheimer,ada lovelace/lovelace,archimedes,maxwell,rutherford,sagan/carl sagan,schrodinger,jane goodall',
+ 'lise meitner/meitner,rosalind franklin,emmy noether/noether,ramanujan,gauss,euler,dirac,pauli,planck,boltzmann,lavoisier,mendeleev,hubble,humboldt,linnaeus,leeuwenhoek,vesalius,ibn al haytham/alhazen,fibonacci,chandrasekhar,vera rubin,barbara mcclintock,hooke,boyle,volta,ampere,ohm,fermi,lamarck,jocelyn bell burnell,rachel carson,hedy lamarr,lynn margulis',
+ 'alfred wegener/wegener'],
+['food','Name a type of cheese',
+ 'cheddar,mozzarella,swiss,parmesan/parmigiano',
+ 'brie,gouda,feta,american,provolone,blue cheese/blue,cream cheese,camembert',
+ 'ricotta,gorgonzola,pecorino,havarti,manchego,colby,monterey jack,pepper jack,roquefort,stilton,gruyere,emmental,halloumi,cottage cheese,mascarpone,burrata',
+ 'taleggio,comte,reblochon,epoisses,raclette,munster,limburger,wensleydale,red leicester,double gloucester,paneer,queso fresco,oaxaca,asiago,fontina,scamorza,stracchino,castelmagno,caciocavallo,grana padano,jarlsberg,leerdammer,morbier,mimolette,tete de moine,cotija,stinking bishop,vacherin,bitto,fiore sardo',
+ 'casu marzu'],
+['words','Name something you find at the beach',
+ 'sand,water,sun,shells/shell/seashells/seashell',
+ 'towel,umbrella,waves/wave,sunscreen,crab,seagull/gull,lifeguard',
+ 'sandcastle,bucket,shovel/spade,surfboard,beach ball,seaweed,rocks/rock,ocean/sea,flip flops,sunglasses,starfish,driftwood,jellyfish,pier,boat',
+ 'sea glass,tide pool/rock pool,kelp,dunes/dune,sandpiper,hermit crab,lighthouse,jetty,groyne,sand dollar,cuttlebone,message in a bottle,metal detector,boardwalk,deckchair,windbreak,kite,plover,buoy,pebbles,shipwreck,lugworm',
+ 'mermaids purse'],
+['words','Name a word that rhymes with LIGHT',
+ 'night,bright,fight,kite,right,sight,white',
+ 'bite,might,tight,flight,height,write,quite',
+ 'delight,knight,fright,plight,spite,slight,site,tonight,alright',
+ 'polite,invite,ignite,recite,excite,despite,unite,appetite,parasite,dynamite,satellite,termite,kryptonite,meteorite,socialite,erudite,contrite,finite,trite,smite,blight,sleight,wight,rite,stalactite,stalagmite,troglodyte,neophyte,acolyte,bauxite,graphite,overnight,copyright,sybarite',
+ 'anthracite'],
+['words','Name a city in Italy',
+ 'rome/roma,venice/venezia,milan/milano,florence/firenze',
+ 'naples/napoli,pisa,turin/torino,bologna,verona',
+ 'genoa/genova,siena,palermo,bari,sorrento,amalfi,positano,como,trieste,padua/padova,parma,lucca,catania',
+ 'matera,lecce,bergamo,ravenna,modena,perugia,assisi,urbino,mantua/mantova,ferrara,cagliari,taormina,syracuse/siracusa,ancona,aosta,trento,bolzano,cremona,orvieto,alberobello,noto,ragusa,spoleto,gubbio,pienza,ivrea,brindisi,reggio calabria',
+ 'civita di bagnoregio'],
+['screen','Name a superhero',
+ 'superman,batman,spider man/spiderman,iron man/ironman',
+ 'wonder woman,captain america,thor,hulk,black panther,wolverine,flash',
+ 'aquaman,deadpool,green lantern,black widow,doctor strange,ant man,captain marvel,hawkeye,storm,cyclops,daredevil,robin,catwoman,shazam,vision,scarlet witch,supergirl',
+ 'moon knight,silver surfer,swamp thing,martian manhunter,nightcrawler,rogue,blue beetle,green arrow,hellboy,spawn,the tick,booster gold,squirrel girl,ms marvel/kamala khan,she hulk,luke cage,iron fist,nova,namor,doctor manhattan,rorschach,jessica jones,cyborg,raven,beast boy,starfire,zatanna,plastic man,elongated man,animal man,doom patrol',
+ 'matter eater lad'],
+['food','Name a kitchen utensil',
+ 'spoon,fork,knife,spatula',
+ 'whisk,ladle,tongs,peeler,can opener,grater,rolling pin,colander,cutting board/chopping board',
+ 'measuring cup,strainer,chopsticks,corkscrew,pizza cutter,garlic press,ice cream scoop,sieve,mortar and pestle/mortar/pestle,pastry brush,skewer,scissors',
+ 'mandoline,zester/microplane,melon baller,egg slicer,mezzaluna,ricer,spider,baster,cleaver,nutcracker,apple corer,pastry cutter,bench scraper,salad spinner,funnel,thermometer,trivet,poultry shears,oyster knife,fish slice,chinois,tamis,dough whisk',
+ 'spurtle'],
+['words','Name an emotion',
+ 'happiness/happy,sadness/sad,anger/angry,love,fear',
+ 'joy,excitement/excited,scared,jealousy/jealous,surprise,disgust,anxiety/anxious,loneliness/lonely',
+ 'hope,guilt,shame,pride,grief,envy,nervous,calm,boredom/bored,confusion/confused,frustration/frustrated,contentment,gratitude,nostalgia,embarrassment,relief',
+ 'melancholy,ennui,awe,schadenfreude,saudade,euphoria,longing,wistfulness,sonder,hiraeth,ambivalence,contempt,resentment,serenity,elation,despair,angst,rapture,apprehension,compersion,chagrin,wonder,mono no aware,acedia,limerence,weltschmerz,torschlusspanik',
+ 'sehnsucht'],
+['nature','Name a type of tree',
+ 'oak,pine,maple,palm,apple',
+ 'birch,willow,cherry,redwood,spruce,cedar,elm',
+ 'ash,fir,sequoia,cypress,magnolia,baobab,eucalyptus,beech,aspen,poplar,sycamore,olive,banyan,juniper,chestnut,walnut,hickory,christmas tree',
+ 'ginkgo,yew,larch,hemlock,alder,hawthorn,rowan,linden/lime,hornbeam,dogwood,jacaranda,acacia,mahogany,teak,ebony,kapok,cork oak,monkey puzzle,dragon blood tree,joshua tree,tamarack,bristlecone pine,wollemi pine,catalpa,sassafras,mangrove,plane tree,umbrella pine,strangler fig,quaking aspen',
+ 'rainbow eucalyptus'],
+['play','Name a board game',
+ 'monopoly,chess,scrabble,checkers/draughts',
+ 'clue/cluedo,risk,sorry,catan/settlers of catan,battleship,connect four,trivial pursuit,life/game of life,candy land,operation',
+ 'backgammon,go,ticket to ride,pandemic,mouse trap,guess who,stratego,mahjong,othello/reversi,jenga,pictionary,dominoes,ludo/parcheesi,carcassonne,snakes and ladders/chutes and ladders,mancala,cranium',
+ 'twilight imperium,gloomhaven,terraforming mars,wingspan,azul,codenames,dixit,agricola,puerto rico,power grid,diplomacy,hive,blokus,shogi,xiangqi,senet,nine mens morris,hnefatafl,pente,abalone,kingdomino,splendor,root,scythe,cosmic encounter,brass,go stop,carrom,tak',
+ 'royal game of ur/game of ur/ur'],
+['screen','Name a fictional detective',
+ 'sherlock holmes/sherlock/holmes,hercule poirot/poirot,scooby doo/scooby',
+ 'miss marple/marple,inspector gadget,columbo,nancy drew',
+ 'philip marlowe/marlowe,sam spade,hardy boys,encyclopedia brown,jessica fletcher,dick tracy,inspector clouseau/clouseau,detective pikachu,detective conan/conan,monk/adrian monk,veronica mars,benoit blanc,jake peralta',
+ 'father brown,auguste dupin/dupin,lord peter wimsey/wimsey,inspector morse/morse,maigret,montalbano,wallander,harry hole,lisbeth salander,nero wolfe,ellery queen,cormoran strike,precious ramotswe,jane tennison,rust cohle,cadfael,judge dee,vera stanhope/vera,jack frost,lieutenant kojak/kojak,sam tyler,tintin,harriet the spy,cassie maddox',
+ 'sergeant cuff'],
+['culture','Name a style of dance',
+ 'ballet,hip hop,salsa,tango',
+ 'tap,jazz,breakdance/breaking,ballroom,waltz,swing,contemporary',
+ 'cha cha,samba,flamenco,belly dance,line dance,foxtrot,square dance,disco,twerk,irish dance,voguing,rumba,polka,zumba,moonwalk,modern',
+ 'bachata,kizomba,lindy hop,charleston,paso doble,quickstep,merengue,cumbia,bhangra,bharatanatyam,kathak,haka,capoeira,butoh,krump,popping,locking,tutting,clogging,morris dance,sirtaki,hula,tarantella,mazurka,polonaise,minuet,gavotte,jive,shuffle,odissi,kuchipudi,sardana,fandango,pizzica',
+ 'dabke'],
+['words','Name something yellow',
+ 'sun,banana,lemon,school bus',
+ 'corn,cheese,taxi/cab,sunflower,rubber duck/duck,egg yolk/yolk,butter,pineapple,bee',
+ 'canary,daffodil,mustard,highlighter,pencil,smiley face/smiley,minions/minion,pikachu,spongebob,sponge,post it,gold,tennis ball,caution sign,raincoat,chick',
+ 'saffron,turmeric,sulfur/sulphur,forsythia,goldfinch,dandelion,buttercup,yellow submarine,big bird,tweety,yellow jersey,citrine,yellow pages,jaundice,marigold,mimosa,rapeseed/canola,custard,starfruit,yellow card,yellow brick road,lemon curd,banana slug,ginkgo leaves',
+ 'goldenrod'],
+['words','Name a language',
+ 'english,spanish,french,chinese/mandarin',
+ 'german,italian,japanese,russian,arabic,portuguese,korean,hindi',
+ 'greek,dutch,swedish,latin,hebrew,turkish,polish,vietnamese,thai,swahili,cantonese,bengali,urdu,persian/farsi,tagalog/filipino,indonesian,norwegian,danish,finnish,sign language',
+ 'basque,welsh,irish/gaelic,catalan,icelandic,hungarian,estonian,latvian,lithuanian,maltese,albanian,georgian,armenian,amharic,yoruba,zulu,xhosa,quechua,guarani,navajo,cherokee,maori,hawaiian,tamil,telugu,punjabi,malay,khmer,lao,burmese,tibetan,mongolian,sanskrit,esperanto,klingon,sardinian,romansh,yiddish,ainu,inuktitut,occitan,friulian,ladino,faroese',
+ 'piraha'],
+['culture','Name a classical composer',
+ 'mozart,beethoven,bach',
+ 'chopin,vivaldi,tchaikovsky,handel',
+ 'brahms,debussy,wagner,verdi,puccini,haydn,schubert,liszt,strauss,stravinsky,rachmaninoff/rachmaninov,mahler,ravel,gershwin,satie,rossini',
+ 'hildegard von bingen/hildegard,monteverdi,palestrina,purcell,telemann,scarlatti,rameau,gluck,berlioz,mendelssohn,schumann,clara schumann,dvorak,grieg,sibelius,mussorgsky,rimsky korsakov,borodin,scriabin,prokofiev,shostakovich,bartok,schoenberg,berg,webern,messiaen,john cage/cage,philip glass/glass,steve reich/reich,arvo part/part,ligeti,xenakis,stockhausen,takemitsu,gorecki,britten,elgar,holst,copland,bernstein,sakamoto,morricone,nono,berio,scelsi,feldman',
+ 'gesualdo'],
+['nature','Name a gemstone',
+ 'diamond,ruby,emerald,sapphire',
+ 'amethyst,pearl,topaz,opal,jade,garnet',
+ 'aquamarine,turquoise,onyx,quartz,peridot,citrine,amber,tourmaline,moonstone,lapis lazuli/lapis,obsidian,tanzanite,jasper,rose quartz',
+ 'alexandrite,tsavorite,spinel,kunzite,morganite,iolite,labradorite,malachite,bloodstone,chrysoberyl,zircon,beryl,sunstone,rhodochrosite,larimar,sodalite,carnelian,agate,chalcedony,hematite,benitoite,painite,jet,coral,ammolite,chrysoprase,demantoid,taaffeite',
+ 'grandidierite'],
+['culture','Name a mythological creature',
+ 'dragon,unicorn,mermaid,vampire',
+ 'phoenix,werewolf,griffin/gryphon,centaur,pegasus,minotaur,fairy',
+ 'medusa,cyclops,hydra,kraken,sphinx,yeti,bigfoot/sasquatch,troll,goblin,elf,banshee,chimera,cerberus,siren,leprechaun,zombie,loch ness monster/nessie',
+ 'basilisk,manticore,kitsune,kappa,tengu,chupacabra,wendigo,golem,harpy,selkie,kelpie,nuckelavee,roc,simurgh,qilin/kirin,baku,naga,garuda,jorogumo,bunyip,taniwha,thunderbird,leviathan,behemoth,ziz,djinn/jinn/genie,ifrit,rusalka,baba yaga,krampus,lamia,satyr,faun,dryad,nymph,cockatrice,wyvern,amphisbaena,hippogriff,fenrir,jormungandr,sleipnir,quetzalcoatl,anansi,ammit',
+ 'catoblepas'],
+['food','Name a pasta shape',
+ 'spaghetti,penne,macaroni,lasagna/lasagne',
+ 'fettuccine,ravioli,linguine,rigatoni,farfalle/bow tie/bowtie,fusilli/rotini,tortellini',
+ 'ziti,orzo,gnocchi,tagliatelle,angel hair/capellini,shells/conchiglie,pappardelle,bucatini,orecchiette,cannelloni,manicotti,vermicelli,ditalini,gemelli',
+ 'radiatori,campanelle,cavatappi,cavatelli,paccheri,trofie,strozzapreti,malloreddus,casarecce,garganelli,mafalde,lumache,anelli,stelline,pici,tortiglioni,agnolotti,cappelletti,mezzelune,corzetti,busiate,bigoli,culurgiones,scialatielli,tajarin,fregola,calamarata',
+ 'su filindeu/filindeu'],
+['culture','Name a famous poet',
+ 'shakespeare,emily dickinson/dickinson,edgar allan poe/poe,robert frost/frost',
+ 'maya angelou/angelou,walt whitman/whitman,homer,dante,langston hughes,sylvia plath/plath',
+ 'keats,shelley,byron,wordsworth,william blake/blake,rumi,neruda,ts eliot/eliot,yeats,tennyson,ee cummings/cummings,rilke,baudelaire,ovid,virgil,chaucer,milton,dylan thomas,allen ginsberg/ginsberg',
+ 'rimbaud,verlaine,mallarme,petrarch,leopardi,sappho,li bai/li po,du fu,basho,hafez,tagore,lorca,pessoa,akhmatova,mandelstam,pushkin,szymborska,celan,holderlin,goethe,anne carson,mary oliver,seamus heaney/heaney,ungaretti,montale,cavafy,apollinaire,kabir,mirabai,gerard manley hopkins/hopkins,coleridge,john donne/donne,ezra pound/pound,wallace stevens,elizabeth bishop,alda merini,tsvetaeva,paul valery',
+ 'catullus'],
+['food','Name a cocktail',
+ 'margarita,mojito,martini',
+ 'pina colada,cosmopolitan/cosmo,old fashioned,bloody mary,daiquiri,long island iced tea',
+ 'manhattan,negroni,mai tai,whiskey sour,moscow mule,mimosa,aperol spritz/spritz,gin and tonic/g and t,tequila sunrise,sex on the beach,caipirinha,white russian,espresso martini',
+ 'sazerac,aviation,last word,boulevardier,americano,sidecar,gimlet,tom collins,french 75,corpse reviver,zombie,hurricane,paloma,pisco sour,dark and stormy,bellini,kir royale,bramble,clover club,vesper,rob roy,rusty nail,grasshopper,singapore sling,penicillin,mint julep,hanky panky,vieux carre,jungle bird,paper plane,brandy alexander,sgroppino',
+ 'ramos gin fizz'],
+['nature','Name an insect',
+ 'ant,bee,butterfly,fly,mosquito',
+ 'ladybug/ladybird,grasshopper,beetle,dragonfly,cockroach,moth,wasp,cricket',
+ 'firefly,termite,flea,praying mantis/mantis,caterpillar,stick insect,hornet,aphid,louse/lice,bumblebee,cicada,earwig,weevil,bed bug',
+ 'silverfish,mayfly,lacewing,damselfly,katydid,scarab,dung beetle,stag beetle,water strider/pond skater,caddisfly,stonefly,thrips,leafhopper,treehopper,assassin bug,orchid mantis,bullet ant,hercules beetle,walking leaf/leaf insect,gnat,midge,horsefly,botfly,tsetse fly,titan beetle,atlas moth,cochineal,snakefly,scorpionfly',
+ 'antlion'],
+['culture','Name a famous architect',
+ 'frank lloyd wright,zaha hadid/hadid,gaudi/antoni gaudi',
+ 'le corbusier,frank gehry/gehry,im pei/pei,norman foster,mies van der rohe/mies',
+ 'renzo piano,rem koolhaas/koolhaas,tadao ando/ando,christopher wren/wren,palladio,brunelleschi,michelangelo,bjarke ingels,santiago calatrava/calatrava,louis kahn,oscar niemeyer/niemeyer,philip johnson,alvar aalto/aalto',
+ 'bernini,borromini,bramante,alberti,mimar sinan/sinan,imhotep,vitruvius,schinkel,otto wagner,adolf loos/loos,gropius,louis sullivan,eero saarinen/saarinen,kenzo tange,arata isozaki,lina bo bardi,luis barragan/barragan,carlo scarpa/scarpa,aldo rossi,peter zumthor/zumthor,kazuyo sejima/sejima,toyo ito,buckminster fuller,jorn utzon/utzon,eileen gray,victor horta/horta,charles rennie mackintosh/mackintosh,hundertwasser,john soane/soane,balkrishna doshi/doshi,francis kere',
+ 'ledoux/claude nicolas ledoux'],
+['food','Name a herb or spice',
+ 'pepper/black pepper,cinnamon,basil,oregano,garlic',
+ 'paprika,cumin,ginger,parsley,thyme,rosemary,mint,turmeric,nutmeg',
+ 'chili/chilli,cayenne,coriander/cilantro,dill,sage,bay leaf/bay,cloves/clove,curry,vanilla,saffron,chives,cardamom,allspice',
+ 'sumac,zaatar,fenugreek,asafoetida/hing,star anise,anise/aniseed,caraway,fennel seed/fennel,juniper,mace,galangal,lemongrass,tarragon,marjoram,savory,lovage,borage,sorrel,epazote,nigella,ajwain,long pepper,sichuan pepper,grains of paradise,annatto,mahleb,amchur,shiso,culantro',
+ 'mastic'],
+['screen','Name a film director',
+ 'spielberg/steven spielberg,tarantino/quentin tarantino,scorsese/martin scorsese,nolan/christopher nolan',
+ 'hitchcock,kubrick,james cameron/cameron,peter jackson,george lucas/lucas,tim burton/burton,ridley scott',
+ 'wes anderson,coppola/francis ford coppola,david lynch/lynch,fincher,kurosawa,miyazaki,del toro,villeneuve,greta gerwig/gerwig,jordan peele/peele,spike lee,woody allen,sofia coppola,taika waititi',
+ 'tarkovsky,bergman,fellini,kieslowski,godard,truffaut,antonioni,pasolini,bunuel,ozu,mizoguchi,wong kar wai,bong joon ho,park chan wook,kiarostami,haneke,herzog,fassbinder,wenders,lars von trier/von trier,agnes varda/varda,chantal akerman/akerman,apichatpong,bela tarr,sergio leone/leone,cassavetes,satyajit ray,almodovar,lynne ramsay,claire denis,jodorowsky,malick,paul thomas anderson,cronenberg,celine sciamma,alice rohrwacher,tsai ming liang',
+ 'parajanov/sergei parajanov'],
+['words','Name something with wheels',
+ 'car,bike/bicycle,bus,truck',
+ 'skateboard,train,motorcycle/motorbike,scooter,wagon,wheelchair,stroller/pram/buggy,shopping cart/trolley',
+ 'tractor,roller skates,wheelbarrow,rollerblades,tricycle,unicycle,segway,office chair,suitcase,airplane/plane,van,taxi,tank,ambulance,go kart',
+ 'rickshaw,penny farthing,chariot,gurney,dolly,hand truck,forklift,steamroller,monster truck,mars rover/rover,tram,cable car,stagecoach,zamboni,velocipede,lawnmower,piano,toy car,potters wheel,hamster wheel,tuk tuk,sulky,landau',
+ 'lunar rover/moon buggy'],
+['words','Name a desert',
+ 'sahara,gobi,mojave',
+ 'arabian,kalahari,atacama,antarctica/antarctic,sonoran',
+ 'death valley,namib,great victoria,thar,chihuahuan,great basin,patagonian,painted desert,arctic,australian outback/outback',
+ 'taklamakan,karakum,kyzylkum,rub al khali/empty quarter,dasht e kavir,dasht e lut/lut,simpson,gibson,tanami,great sandy,negev,sinai,danakil,ogaden,nubian,libyan,colorado,black rock,white sands,wadi rum,sechura,judean,accona,bardenas reales',
+ 'tabernas'],
+['nature','Name something you find in space',
+ 'stars/star,planets/planet,moon,sun',
+ 'asteroid,comet,black hole,galaxy,meteor,satellite,astronaut',
+ 'nebula,space station/iss,supernova,milky way,dust,aliens/alien,rocket,space junk/debris,dark matter,ufo,constellation',
+ 'quasar,pulsar,magnetar,white dwarf,red giant,neutron star,brown dwarf,exoplanet,oort cloud,kuiper belt,cosmic rays,wormhole,dark energy,gamma ray burst,solar wind,plasma,blazar,protoplanetary disk,cosmic microwave background/cmb,voyager,tardigrade,lagrange point,hydrogen',
+ 'great attractor'],
+['play','Name a card game',
+ 'poker,solitaire,uno,blackjack/21',
+ 'go fish,war,rummy,bridge,crazy eights,old maid,hearts,spades,snap',
+ 'gin rummy,canasta,euchre,cribbage,baccarat,spit/speed,president,cheat/bs,magic the gathering/magic,pokemon,yugioh,exploding kittens,texas holdem,patience',
+ 'scopa,briscola,tressette,belote,skat,schafkopf,jass,mus,tarot/tarocchi,whist,piquet,bezique,pinochle,sheepshead,klaverjas,durak,hanafuda,pishti,truco,cuarenta,napoleon,oh hell,hand and foot,mau mau,set',
+ 'scopone scientifico'],
+['culture','Name a famous sculpture',
+ 'david,the thinker/thinker,statue of liberty',
+ 'venus de milo,mount rushmore,the kiss/kiss,pieta,christ the redeemer,great sphinx/sphinx',
+ 'winged victory/nike of samothrace,the little mermaid/little mermaid,cloud gate/the bean/bean,discobolus/discus thrower,manneken pis,balloon dog,moai/easter island heads,terracotta army,laocoon,angel of the north,charging bull',
+ 'ecstasy of saint teresa/ecstasy of st teresa,apollo and daphne,rape of proserpina,bird in space,unique forms of continuity in space,walking man,spiral jetty,maman,the gates of hell/gates of hell,the burghers of calais/burghers of calais,nefertiti bust/bust of nefertiti,venus of willendorf,the veiled christ/veiled christ,perseus with the head of medusa,riace bronzes,dying gaul,capitoline wolf,lion man,fountain',
+ 'the weather project/weather project'],
+['play','Name a video game',
+ 'minecraft,fortnite,mario/super mario,tetris',
+ 'pac man/pacman,zelda/legend of zelda,call of duty,pokemon,grand theft auto/gta,sonic,roblox,among us',
+ 'halo,the sims/sims,animal crossing,street fighter,doom,portal,skyrim,overwatch,league of legends,world of warcraft/wow,elden ring,red dead redemption,donkey kong,space invaders,pong,metroid,final fantasy',
+ 'outer wilds,disco elysium,journey,shadow of the colossus,ico,katamari damacy,okami,hades,celeste,undertale,hollow knight,braid,limbo,inside,fez,myst,the witness,return of the obra dinn/obra dinn,papers please,dwarf fortress,nethack,rez,tetris effect,stardew valley,baba is you,kentucky route zero,gris,firewatch,cave story,planescape torment',
+ 'rain world'],
+];
+
+const TIERS = [
+  { name: 'Missed',     pts: 0,   emoji: '⬛', color: 'var(--t0)' },
+  { name: 'Plankton',   pts: 10,  emoji: '🫧', color: 'var(--t1)' },
+  { name: 'Schooler',   pts: 30,  emoji: '🐟', color: 'var(--t2)' },
+  { name: 'Rare',       pts: 60,  emoji: '🐙', color: 'var(--t3)' },
+  { name: 'Deep Cut',   pts: 85,  emoji: '🦑', color: 'var(--t4)' },
+  { name: 'Abyssal',    pts: 100, emoji: '🌟', color: 'var(--t5)' },
+];
+
+const PACKS = {
+  food:    { name: 'Food & Drink',     icon: '🍋' },
+  nature:  { name: 'Nature & Science', icon: '🧬' },
+  culture: { name: 'Art & Thought',    icon: '🎭' },
+  screen:  { name: 'Screen & Story',   icon: '🎬' },
+  play:    { name: 'Games & Sport',    icon: '🎲' },
+  words:   { name: 'World & Words',    icon: '🗺️' },
+};
+
+const ZONES = [
+  { at: 0,    name: 'Sunlight Zone', color: [79, 184, 224] },
+  { at: 200,  name: 'Twilight Zone', color: [22, 96, 150] },
+  { at: 1000, name: 'Midnight Zone', color: [10, 38, 74] },
+  { at: 4000, name: 'Abyssal Zone',  color: [5, 14, 34] },
+  { at: 6000, name: 'Hadal Zone',    color: [2, 4, 12] },
+];
+
+const SECONDS = 20, ROUNDS = 7, METERS_PER_POINT = 10, LIVES = 3;
+const EPOCH = Date.UTC(2026, 0, 1);
+
+/* ---------------- text matching ---------------- */
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/&/g, ' and ').replace(/['’`.]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  .replace(/^(the|a|an) /, '').replace(/ /g, '');
+
+function lev(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+function compile([pack, q, ...tiers]) {
+  const keys = new Map(), lists = [];
+  tiers.forEach((list, i) => {
+    const names = [];
+    list.split(',').map(s => s.trim()).filter(Boolean).forEach(entry => {
+      const aliases = entry.split('/');
+      names.push(aliases[0]);
+      // Earlier (more common) tiers win when an answer is listed twice.
+      aliases.forEach(a => { const k = norm(a); if (k && !keys.has(k)) keys.set(k, { tier: i + 1, name: aliases[0] }); });
+    });
+    lists.push(names);
+  });
+  return { pack, q, keys, lists };
+}
+const PROMPTS = BANK.map(compile);
+
+function lookup(prompt, raw) {
+  const k = norm(raw);
+  if (!k) return null;
+  const variants = [k, k.replace(/es$/, ''), k.replace(/s$/, ''), k + 's', k + 'es'];
+  for (const v of variants) if (prompt.keys.has(v)) return prompt.keys.get(v);
+  if (k.length < 5) return null;
+  const tol = k.length >= 9 ? 2 : 1;
+  let best = null, bestD = tol + 1;
+  for (const [key, hit] of prompt.keys) {
+    if (key.length < 4) continue;
+    const d = lev(k, key, tol);
+    if (d < bestD || (d === bestD && best && hit.tier < best.tier)) { best = hit; bestD = d; }
+  }
+  return bestD <= tol ? best : null;
+}
+
+/* ---------------- seeded randomness ---------------- */
+function rng(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function shuffle(arr, rand = Math.random) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const dayNumber = () => Math.floor((Date.now() - EPOCH) / 86400000) + 1;
+function dailyPrompts() {
+  // A fresh shuffle every pass through the bank so consecutive days never repeat.
+  const n = dayNumber(), per = Math.floor(PROMPTS.length / ROUNDS);
+  const cycle = Math.floor((n - 1) / per), slot = (n - 1) % per;
+  const order = shuffle(PROMPTS.map((_, i) => i), rng(cycle * 7919 + 17));
+  return order.slice(slot * ROUNDS, slot * ROUNDS + ROUNDS).map(i => PROMPTS[i]);
+}
+
+/* ---------------- storage (best-effort) ---------------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('plunge:' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('plunge:' + k, JSON.stringify(v)); } catch {} },
+};
+
+/* ---------------- ocean ambience ---------------- */
+const zoneFor = m => ZONES.reduce((z, cur) => m >= cur.at ? cur : z, ZONES[0]);
+function seaColor(m) {
+  let i = 0;
+  while (i < ZONES.length - 1 && m >= ZONES[i + 1].at) i++;
+  const a = ZONES[i], b = ZONES[i + 1] || a;
+  const t = b === a ? 0 : (m - a.at) / (b.at - a.at);
+  return `rgb(${a.color.map((c, k) => Math.round(c + (b.color[k] - c) * t)).join(',')})`;
+}
+let currentDepth = 0;
+function setDepth(m) {
+  currentDepth = m;
+  document.body.style.backgroundColor = seaColor(m);
+  document.getElementById('rays').style.opacity = Math.max(0, 1 - m / 900);
+  const sub = document.querySelector('#gauge .sub');
+  if (sub) sub.style.top = Math.min(100, m / 70) + '%';
+  const pill = document.querySelector('.depthpill');
+  if (pill) pill.textContent = `${Math.round(m).toLocaleString()} m`;
+}
+function buildGauge() {
+  const g = document.getElementById('gauge');
+  g.innerHTML = ZONES.map(z => `<div class="tick" style="top:${z.at / 70}%">${z.at}m</div>`).join('') +
+    `<div class="tick" style="top:100%">7000m</div><div class="sub">${SUB_SVG}</div>`;
+}
+const SUB_SVG = `<svg viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="9" ry="6" fill="#ffd36b"/><rect x="10" y="4" width="4" height="5" rx="1" fill="#ffd36b"/><circle cx="14" cy="13" r="2.6" fill="#0a3a5c" stroke="#fff" stroke-width="1"/><path d="M3 13 L0 10 L0 16Z" fill="#ffb347"/></svg>`;
+
+const CRITTERS = [
+  [0, ['🐠', '🐟', '🐡', '🐢']], [200, ['🦈', '🐬', '🪼', '🦑']],
+  [1000, ['🦑', '🪼', '🐙']], [4000, ['🪼', '🦐']], [6000, ['🪼']],
+];
+function ambience() {
+  const sea = document.getElementById('sea');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  setInterval(() => {
+    if (document.hidden || sea.childElementCount > 40) return;
+    const b = document.createElement('div');
+    const s = 4 + Math.random() * 14;
+    b.className = 'bubble';
+    Object.assign(b.style, { width: s + 'px', height: s + 'px', left: Math.random() * 100 + 'vw', animationDuration: 6 + Math.random() * 8 + 's' });
+    b.style.setProperty('--dx', (Math.random() * 60 - 30) + 'px');
+    sea.appendChild(b);
+    b.addEventListener('animationend', () => b.remove());
+  }, 450);
+  setInterval(() => {
+    if (document.hidden) return;
+    const set = CRITTERS.reduce((acc, [at, list]) => currentDepth >= at ? list : acc, CRITTERS[0][1]);
+    const c = document.createElement('div');
+    c.className = 'critter' + (currentDepth >= 1000 ? ' glow' : '');
+    c.textContent = set[Math.floor(Math.random() * set.length)];
+    c.style.top = 15 + Math.random() * 70 + 'vh';
+    c.style.animationDuration = 18 + Math.random() * 14 + 's';
+    c.style.setProperty('--flip', '-1');
+    sea.appendChild(c);
+    c.addEventListener('animationend', () => c.remove());
+  }, 5200);
+}
+
+/* ---------------- rendering helpers ---------------- */
+const app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const chip = t => `<span class="chip" style="background:${TIERS[t].color}">${TIERS[t].emoji} ${TIERS[t].name}</span>`;
+const LOGO = `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="none" stroke="#5ee6d0" stroke-width="2"/><path d="M16 5v18m-6-6 6 7 6-7" fill="none" stroke="#eaf7ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function shell(body, depthPill = true) {
+  app.innerHTML = `<header><div class="logo" onclick="home()">${LOGO}Plunge</div>${depthPill ? `<div class="depthpill">${Math.round(currentDepth).toLocaleString()} m</div>` : ''}</header>${body}`;
+}
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1800);
+}
+
+/* ---------------- home ---------------- */
+function home() {
+  stopTimer();
+  setDepth(0);
+  const done = store.get('daily:' + todayKey());
+  const st = stats();
+  shell(`
+    <div class="card">
+      <div class="cat">Daily trivia · No. ${dayNumber()}</div>
+      <h1>The rarer the answer, the deeper you dive.</h1>
+      <p class="muted">Seven prompts. ${SECONDS} seconds each. Common answers keep you near the surface — answers nobody else thinks of take you down to the trench at 7,000 m.</p>
+      <div class="stack">
+        ${done
+          ? `<button class="big" onclick="showDaily()">See today's dive · ${done.depth.toLocaleString()} m</button>`
+          : `<button class="big" onclick="start('daily')">Start today's dive</button>`}
+        <button class="big ghost" onclick="start('endless')">∞ Endless dive <span class="small muted">· ${LIVES} lives</span></button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>Themed packs</h2>
+      <div class="packs">
+        ${Object.entries(PACKS).map(([k, p]) => `<button class="pack" onclick="start('pack','${k}')"><i>${p.icon}</i><b>${p.name}</b><span>${PROMPTS.filter(x => x.pack === k).length} prompts</span></button>`).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2>How scoring works</h2>
+      <p class="muted small" style="margin:0">Type any valid answer. If it isn't in the answer bank you can keep trying until time runs out. Every point = ${METERS_PER_POINT} m of depth.</p>
+      <ul class="tiers">
+        ${TIERS.slice(1).map((t, i) => `<li>${chip(i + 1)}<b>${t.pts} pts</b><span class="muted small">${['what most people say', 'a solid, popular pick', 'off the beaten path', 'few divers find these', 'the one hidden answer per prompt'][i]}</span></li>`).join('')}
+      </ul>
+    </div>
+
+    ${st.played ? `<div class="card" style="margin-top:14px"><h2>Your log</h2>${statsHtml(st)}</div>` : ''}
+    <p class="small muted" style="text-align:center;margin-top:18px">A new dive surfaces every day at 00:00 UTC.</p>
+  `);
+}
+
+/* ---------------- game state ---------------- */
+let G = null, timer = null;
+function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+
+function start(mode, pack) {
+  let queue;
+  if (mode === 'daily') {
+    if (store.get('daily:' + todayKey())) return showDaily();
+    queue = dailyPrompts();
+  } else if (mode === 'pack') {
+    queue = shuffle(PROMPTS.filter(p => p.pack === pack)).slice(0, ROUNDS);
+  } else {
+    queue = shuffle(PROMPTS);
+  }
+  G = { mode, pack, queue, i: 0, results: [], points: 0, lives: LIVES };
+  setDepth(0);
+  ask();
+}
+
+function ask() {
+  const p = G.queue[G.i];
+  const total = G.mode === 'endless' ? null : G.queue.length;
+  let left = SECONDS, answered = false;
+  const tried = [];
+  shell(`
+    <div class="card" id="play">
+      <div class="meta">
+        <span>${G.mode === 'endless' ? `Prompt ${G.i + 1} · ${'❤️'.repeat(G.lives)}${'🖤'.repeat(LIVES - G.lives)}` : `Prompt ${G.i + 1} of ${total}`}</span>
+        ${total ? `<div class="dots">${G.queue.map((_, k) => `<span class="${k <= G.i ? 'on' : ''}"></span>`).join('')}</div>` : `<span>${G.points} pts</span>`}
+      </div>
+      <div class="cat">${PACKS[p.pack].icon} ${PACKS[p.pack].name}</div>
+      <div class="prompt-wrap">
+        <div class="prompt">${esc(p.q)}…</div>
+        <div class="timer" id="timer"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="bar" id="bar" cx="40" cy="40" r="34" stroke-dasharray="213.6" stroke-dashoffset="0"/></svg><b id="secs">${SECONDS}</b></div>
+      </div>
+      <form id="f" autocomplete="off">
+        <input type="text" id="ans" placeholder="Your answer" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" maxlength="60">
+        <button type="submit">Dive</button>
+      </form>
+      <div class="feedback" id="fb"></div>
+      <div class="tried" id="tried"></div>
+      <button class="skip" id="skip">Give up on this one</button>
+    </div>`);
+  const input = document.getElementById('ans');
+  input.focus();
+
+  const finish = (hit, guess) => {
+    if (answered) return;
+    answered = true;
+    stopTimer();
+    resolve(p, hit, guess);
+  };
+
+  document.getElementById('f').onsubmit = e => {
+    e.preventDefault();
+    const v = input.value.trim();
+    if (!v) return;
+    const hit = lookup(p, v);
+    if (hit) return finish(hit, v);
+    if (!tried.includes(v.toLowerCase())) tried.push(v.toLowerCase());
+    document.getElementById('fb').textContent = 'Not in the answer bank — try another!';
+    document.getElementById('tried').innerHTML = tried.map(t => `<span>${esc(t)}</span>`).join('');
+    const card = document.getElementById('play');
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    input.select();
+  };
+  document.getElementById('skip').onclick = () => finish(null, '');
+
+  const t0 = Date.now();
+  timer = setInterval(() => {
+    left = Math.max(0, SECONDS - (Date.now() - t0) / 1000);
+    document.getElementById('secs').textContent = Math.ceil(left);
+    document.getElementById('bar').setAttribute('stroke-dashoffset', 213.6 * (1 - left / SECONDS));
+    document.getElementById('timer').classList.toggle('low', left <= 5);
+    if (left <= 0) finish(null, '');
+  }, 100);
+}
+
+function resolve(p, hit, guess) {
+  const tier = hit ? hit.tier : 0, pts = TIERS[tier].pts;
+  G.results.push({ q: p.q, tier, answer: hit ? hit.name : null, pts });
+  G.points += pts;
+  if (G.mode === 'endless' && tier === 0) G.lives--;
+  const before = currentDepth;
+  setDepth(G.points * METERS_PER_POINT);
+  const crossed = zoneFor(currentDepth) !== zoneFor(before);
+
+  const sample = (t, n) => shuffle(p.lists[t - 1].filter(a => !hit || a !== hit.name)).slice(0, n).join(', ');
+  const last = G.mode === 'endless' ? G.lives <= 0 : G.i + 1 >= G.queue.length;
+  shell(`
+    <div class="card reveal pop">
+      <div class="cat">${esc(p.q)}</div>
+      ${hit ? `<div class="you">${esc(hit.name)}</div>` : `<div class="you" style="color:var(--muted)">${guess ? esc(guess) : 'Time ran out'}</div>`}
+      <div>${chip(tier)}</div>
+      <div class="pts" style="color:${TIERS[tier].color}">+${pts}</div>
+      <div class="meters">${pts ? `▼ ${pts * METERS_PER_POINT} m deeper` : 'You hold your depth.'}${crossed ? ` · entering the <b class="zone">${zoneFor(currentDepth).name}</b>` : ''}</div>
+      <div class="spectrum">
+        <div>${chip(1)}<span class="ex">${esc(sample(1, 3))}</span></div>
+        <div>${chip(3)}<span class="ex">${esc(sample(3, 3))}</span></div>
+        <div>${chip(4)}<span class="ex">${esc(sample(4, 3))}</span></div>
+        <div>${chip(5)}<span class="ex">${tier === 5 ? 'You found it!' : esc(p.lists[4][0])}</span></div>
+      </div>
+      <button class="big" id="next" style="margin-top:18px">${last ? 'Surface & see results' : 'Next prompt ▼'}</button>
+    </div>`);
+  const next = document.getElementById('next');
+  next.focus();
+  next.onclick = () => {
+    if (last) return results();
+    G.i++;
+    if (G.mode === 'endless' && G.i >= G.queue.length) { G.queue = G.queue.concat(shuffle(PROMPTS)); }
+    ask();
+  };
+}
+
+/* ---------------- results & stats ---------------- */
+function stats() { return store.get('stats', { played: 0, streak: 0, best: 0, total: 0, last: null, endlessBest: 0 }); }
+function statsHtml(st) {
+  return `<div class="stats">
+    <div><b>${st.played}</b><span>Dives</span></div>
+    <div><b>${st.streak}</b><span>Streak</span></div>
+    <div><b>${st.best.toLocaleString()}</b><span>Best m</span></div>
+    <div><b>${st.played ? Math.round(st.total / st.played).toLocaleString() : 0}</b><span>Avg m</span></div>
+  </div>${st.endlessBest ? `<p class="small muted" style="text-align:center;margin:0">Endless record: ${st.endlessBest.toLocaleString()} m</p>` : ''}`;
+}
+
+function results() {
+  const depth = G.points * METERS_PER_POINT;
+  const st = stats();
+  if (G.mode === 'daily') {
+    const key = todayKey();
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    st.streak = st.last === yesterday ? st.streak + 1 : 1;
+    st.last = key; st.played++; st.total += depth; st.best = Math.max(st.best, depth);
+    store.set('daily:' + key, { depth, points: G.points, results: G.results, day: dayNumber() });
+  } else if (G.mode === 'endless') {
+    st.endlessBest = Math.max(st.endlessBest || 0, depth);
+  }
+  store.set('stats', st);
+  renderResults({ depth, points: G.points, results: G.results, day: dayNumber() }, G.mode, G.pack);
+}
+
+function showDaily() {
+  const d = store.get('daily:' + todayKey());
+  if (!d) return home();
+  renderResults(d, 'daily');
+}
+
+function renderResults(d, mode, pack) {
+  setDepth(d.depth);
+  const zone = zoneFor(d.depth);
+  const title = mode === 'daily' ? `Daily dive No. ${d.day}` : mode === 'endless' ? 'Endless dive' : `${PACKS[pack].name} pack`;
+  const max = d.results.length * 100;
+  const share = `Plunge · ${title}\n${d.results.map(r => TIERS[r.tier].emoji).join('')}\n${d.depth.toLocaleString()} m — ${zone.name} (${d.points}/${max})`;
+  shell(`
+    <div class="card reveal pop">
+      <div class="cat">${esc(title)} · surfaced</div>
+      <div class="bigdepth">${d.depth.toLocaleString()} m</div>
+      <div class="zone">You reached the ${zone.name}</div>
+      <div class="grid-emoji">${d.results.map(r => TIERS[r.tier].emoji).join('')}</div>
+      <div class="muted">${d.points} / ${max} points</div>
+      <div class="log">${d.results.map(r => `<div><span>${esc(r.q)}<br><em>${r.answer ? esc(r.answer) : '—'}</em></span>${chip(r.tier)}</div>`).join('')}</div>
+      <div class="row" style="margin-top:16px">
+        <button id="share">Share</button>
+        ${mode === 'daily' ? '' : `<button class="ghost" onclick="start('${mode}'${pack ? `,'${pack}'` : ''})">Dive again</button>`}
+        <button class="ghost" onclick="home()">Home</button>
+      </div>
+      ${mode === 'daily' ? `<p class="small muted" id="cd" style="margin-bottom:0"></p>` : ''}
+    </div>
+    ${mode === 'daily' ? `<div class="card" style="margin-top:14px">${statsHtml(stats())}</div>` : ''}`);
+  document.getElementById('share').onclick = async () => {
+    try {
+      if (navigator.share) await navigator.share({ text: share });
+      else { await navigator.clipboard.writeText(share); toast('Copied to clipboard'); }
+    } catch { /* cancelled */ }
+  };
+  if (mode === 'daily') {
+    const cd = document.getElementById('cd');
+    const tick = () => {
+      if (!document.body.contains(cd)) return clearInterval(id);
+      const now = new Date(), next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      const s = Math.floor((next - now) / 1000);
+      cd.textContent = `Next dive in ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    };
+    const id = setInterval(tick, 1000); tick();
+  }
+}
+
+buildGauge();
+ambience();
+home();
+</script>
+</body>
+</html>

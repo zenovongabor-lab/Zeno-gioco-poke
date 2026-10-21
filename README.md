@@ -52,6 +52,23 @@ Pokémon data and artwork are pulled live from [PokéAPI](https://pokeapi.co/)
 (including Megas, Gigantamax forms, and shinies). If the network is blocked the
 game quietly falls back to a small built-in roster so it always runs.
 
+## 🌊 Bonus game: Plunge — the daily dive
+
+[`plunge/index.html`](./plunge/index.html) is a separate single-file trivia game
+modelled on the Krillion format: **the rarer your answer, the deeper you dive.**
+
+- **Daily dive** — the same 7 prompts for everyone each day (new set at 00:00 UTC),
+  20 seconds per prompt, one attempt per day, with streak and best-depth stats.
+- **Scoring** — Plankton 10 · Schooler 30 · Rare 60 · Deep Cut 85 · Abyssal 100
+  (one hidden answer per prompt). Every point = 10 m; a perfect dive hits 7,000 m.
+  Wrong answers that aren't in the answer bank can be retried while time remains.
+- **Themed packs** (Food & Drink, Nature & Science, Art & Thought, Screen & Story,
+  Games & Sport, World & Words) and an **Endless dive** with 3 lives.
+- Shareable emoji result, typo-tolerant matching, and an ocean that darkens
+  through the Sunlight → Twilight → Midnight → Abyssal → Hadal zones.
+
+Once Pages is enabled it is live at `https://<your-username>.github.io/<repository-name>/plunge/`.
+
 ## Play it online (GitHub Pages)
 
 This repo is set up to publish itself to the web. One-time setup:
