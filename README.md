@@ -61,11 +61,18 @@ modelled on the Krillion format: **the rarer your answer, the deeper you dive.**
   20 seconds per prompt, one attempt per day, with streak and best-depth stats.
 - **Scoring**: Plankton 10 · Schooler 30 · Rare 60 · Deep Cut 85 · Abyssal 100
   (one hidden answer per prompt). Every point = 10 m; a perfect dive hits 7,000 m.
-- **Broad answers**: 71 prompts, from "Name a fruit" to "Name something round",
-  "Name a reason to be late" and "Name a philosophical idea", with about 5,700
-  accepted answers and typo-tolerant matching. When the page runs as a Claude
-  artifact, answers outside the bank are judged by Claude (the clock pauses
-  while it decides), so any genuinely correct answer can score.
+- **Thousands of prompts**: 134 open prompts (from "Name a fruit" to "Name
+  something you can hear but not see", "Name a word borrowed from Italian" and
+  "Name a philosophical idea") with about 14,000 accepted answers, plus about
+  2,250 variations built from those lists ("Name a fruit, starting with P",
+  "…with a Z in it", "…10 or more letters long"), for roughly 2,400 prompts.
+  Matching is typo-tolerant. When the page runs as a Claude artifact, answers
+  outside the bank are judged by Claude (the clock pauses while it decides).
+- **A scene after every answer**: each tier has its own full-screen moment:
+  swirling plankton, a bait ball of fish with a passing shark, an octopus in a
+  cloud of ink, a glowing squid, and a golden leviathan for the hidden answer.
+  The particles gather into your score, the tier is named, then everything
+  streaks upward as you dive. Tap to skip.
 - **Themed packs** (Food & Drink, Nature & Science, Art & Thought, Screen & Story,
   Games & Sport, World & Words) and an **Endless dive** with 3 lives.
 - **Animated ocean**: a canvas sea that darkens through the Sunlight → Twilight →
